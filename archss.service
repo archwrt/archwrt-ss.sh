@@ -1,0 +1,16 @@
+[Unit]
+Description=ss/ssr/socks5 global proxy script
+ConditionFileIsExecutable=/opt/archss/archss.sh
+ConditionFileNotEmpty=/opt/archss/config.json
+Requires=network.target network-online.target haveged.service
+After=network.target network-online.target haveged.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/archss/archss.sh start
+ExecStop=/opt/archss/archss.sh stop
+ExecReload=/opt/archss/archss.sh restart
+
+[Install]
+WantedBy=multi-user.target
