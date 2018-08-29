@@ -7,11 +7,11 @@
 * haveged
 ```
 sudo pacman -S shadowsocks-libev ipset iptables dnsutils haveged
-sudo aurman -S dnsproxy
+aurman -S dnsproxy
 ```
 
 ## INSTALLATION
->Only Test in Arch Linux
+>Only tested on Arch Linux
 ```
 git clone https://github.com/monlor/Arch-Router-SS
 mkdir -p /opt/archss
@@ -21,5 +21,18 @@ chmod +x /opt/archss/archss.sh
 /opt/archss/archss.sh # getting start
 ```
 
-## WHAT DOES IT DO
-CROSS THE CHINESE FIREWALL
+## Auto Run
+### Netctl hooks for wan start
+```
+cat> /etc/netctl/hooks/archss <<EOF
+#!/bin/sh
+ExecUpPost="systemctl start archss"
+ExecDownPre="systemctl stop archss"
+EOF
+```
+### Auto run after reboot
+```
+systemctl enable archss
+```
+## USED FOR
+Bypassing the Great Firewall of China by setting up a transparent proxy, using Shadowsocks-libev and iptables.
