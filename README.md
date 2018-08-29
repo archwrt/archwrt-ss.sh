@@ -1,4 +1,4 @@
-##DEPENDS
+## DEPENDS
 * shadowsocks-libev
 * ipset
 * iptables
@@ -10,7 +10,7 @@ sudo pacman -S shadowsocks-libev ipset iptables dnsutils haveged
 sudo aurman -S dnsproxy
 ```
 
-##INSTALLATION
+## INSTALLATION
 >Only Test in Arch Linux
 ```
 git clone https://github.com/monlor/Arch-Router-SS
@@ -21,5 +21,5 @@ chmod +x /opt/archss/archss.sh
 /opt/archss/archss.sh # getting start
 ```
 
-##WHAT DOES IT DO
+## WHAT DOES IT DO
 CROSS THE CHINESE FIREWALL
