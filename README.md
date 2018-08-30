@@ -1,4 +1,4 @@
-## DEPENDS
+## DEPENDENCE
 * shadowsocks-libev
 * ipset
 * iptables
@@ -18,10 +18,10 @@ mkdir -p /opt/archss
 cp -rf ./Arch-Router-SS/archss.sh /opt/archss/
 cp -rf ./Arch-Router-SS/archss.service /lib/systemd/system
 chmod +x /opt/archss/archss.sh
-/opt/archss/archss.sh # getting start
+/opt/archss/archss.sh start# getting start
 ```
 
-## Auto Run
+## AUTO RUN
 ### Netctl hooks for wan start
 ```
 cat> /etc/netctl/hooks/archss <<EOF
