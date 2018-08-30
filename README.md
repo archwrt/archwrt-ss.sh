@@ -29,6 +29,7 @@ cat> /etc/netctl/hooks/archss <<EOF
 ExecUpPost="systemctl start archss"
 ExecDownPre="systemctl stop archss"
 EOF
+chmod +x /etc/netctl/hooks/archss
 ```
 ### Auto run after reboot
 ```
