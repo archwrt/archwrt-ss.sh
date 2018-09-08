@@ -29,7 +29,7 @@ Info:
 	Copyright by monlor
 
 Usage:
-	$0 {start|stop|restart|status|config|update} {gfwlist|bypass|gamemode|whole}
+	$0 {start|stop|restart|status|config|update|install} {gfwlist|bypass|gamemode|whole}
 
 Example:
 	$0 start bypass		Start with bypass mode
