@@ -8,8 +8,9 @@ fast_open="true"
 remote_dns_ip="8.8.8.8"
 remote_dns_port="53"
 ss_mode="gfwlist" # default
-ss_cdn="223.5.5.5" # for not gfwlist mode
-lanip="" # set it for chromecast
+ss_cdn="202.141.162.123" # for not gfwlist mode, DNS Server 202.141.162.123 is hosed by USTC LUG
+ss_cdn_port="5353" # use 5353 instead of 53 to protect from being attack
+lanip="192.168.123.1" # set it for chromecast
 # File Path
 ss_redir="/usr/bin/ss-redir"
 dnsproxy="/usr/bin/dnsproxy"
@@ -28,15 +29,48 @@ Info:
 	Copyright by monlor
 
 Usage:
-	$0 {start|stop|restart|status|config} {gfwlist|bypass|gamemode|whole}
+	$0 {start|stop|restart|status|config|update|install} {gfwlist|bypass|gamemode|whole}
 
 Example:
-	$0 start bypass        Start with bypass mode
-	$0 restart gfwlist     Restart with gfwlist mode
-	$0 start  	       Start with default mode[$ss_mode]
-	$0 config 	       Modify server config
+	$0 start bypass		Start with bypass mode
+	$0 restart gfwlist		Restart with gfwlist mode
+	$0 start			Start with default mode[$ss_mode]
+	$0 config			Modify server config
+	$0 update			Update rules
+	$0 install			Install scipts to /opt/archss
 EOF
 
+}
+
+install_scripts() {
+	[ ! -d "$ss_path" ] && mkdir -p "$ss_path"
+    [ ! -f "$white_path" ] && touch "$white_path"
+    [ ! -f "$black_path" ] && touch "$black_path"
+	echo "Installing archss.sh to $ss_path/archss.sh"
+	install -D -m755 $0 "$ss_path/archss.sh"
+	echo "Installing archss.service to /lib/systemd/system/archss.service"
+	cat > /lib/systemd/system/archss.service << EOF
+[Unit]
+Description=ss/ssr/socks5 global proxy script
+ConditionFileIsExecutable=/opt/archss/archss.sh
+ConditionFileNotEmpty=/opt/archss/config.json
+Requires=network.target network-online.target haveged.service
+After=network.target network-online.target haveged.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/archss/archss.sh start
+ExecStop=/opt/archss/archss.sh stop
+ExecReload=/opt/archss/archss.sh restart
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+	chmod 644 /lib/systemd/system/archss.service
+	echo "Updating Rules..."
+	update
 }
 
 prepare() {
@@ -130,30 +164,38 @@ start_dnsproxy() {
 
 }
 
-update_rules() {
-
+update() {
 	echo "下载规则列表..."
-	if [ ! -f "$gfwlist_path" ]; then
+	if [ ! -f "$gfwlist_path" -o "$1" = "force" ]; then
 		echo "下载gfwlist规则..."
-		curl -kLo /tmp/gfwlist.conf https://koolshare.ngrok.wang/maintain_files/gfwlist.conf
+		curl -kLo /tmp/gfwlist.conf https://github.com/hq450/fancyss/raw/master/rules/gfwlist.conf
 		[ $? -ne 0 ] && echo "下载失败！请检查网络！" && exit 1
-		mv -f /tmp/gfwlist.conf "$gfwlist_path" &> /dev/null
+		install -D -m644 /tmp/gfwlist.conf "$gfwlist_path" &> /dev/null
+		rm /tmp/gfwlist.conf
 	fi
 
-	if [ ! -f "$chnroute_path" ]; then
+	if [ ! -f "$chnroute_path" -o "$1" = "force" ]; then
 		echo "下载大陆白名单规则..."
-		curl -kLo /tmp/chnroute.txt https://koolshare.ngrok.wang/maintain_files/chnroute.txt
+		curl -kLo /tmp/chnroute.txt https://github.com/hq450/fancyss/raw/master/rules/chnroute.txt
 		[ $? -ne 0 ] && echo "下载失败！请检查网络！" && exit 1
-		mv -f /tmp/chnroute.txt "$chnroute_path" &> /dev/null
+		install -D -m644 /tmp/chnroute.txt "$chnroute_path" &> /dev/null
+		rm /tmp/chnroute.txt
 	fi
 
-	if [ ! -f "$cdn_path" ]; then
+	if [ ! -f "$cdn_path" -o "$1" = "force" ]; then
 		echo "下载cdn规则..."
-		curl -kLo /tmp/cdn.txt https://koolshare.ngrok.wang/maintain_files/cdn.txt
+		curl -kLo /tmp/cdn.txt https://github.com/hq450/fancyss/raw/master/rules/cdn.txt
 		[ $? -ne 0 ] && echo "下载失败！请检查网络！" && exit 1
-		mv -f /tmp/cdn.txt "$cdn_path" &> /dev/null
+		install -D -m644 /tmp/cdn.txt "$cdn_path" &> /dev/null
+		rm /tmp/cdn.txt
 	fi
-
+	if [ "$1" = "force" ]; then
+         echo "下载archss.sh..."
+         curl -kLo /tmp/archss.sh https://github.com/monlor/Arch-Router-SS/raw/master/archss.sh
+         [ $? -ne 0 ] && echo "下载失败！请检查网络！" && exit 1
+         install -D -m755 /tmp/archss.sh "$ss_path/archss.sh" &> /dev/null
+		 rm /tmp/archss.sh
+    fi
 }
 
 config_ipset() {
@@ -178,6 +220,9 @@ config_ipset() {
 	do
 		ipset -! add black_list $ip >/dev/null 2>&1
 	done
+
+    ss_server_ip=$(cat $config_path | grep server | grep -oE "([0-9]{1,3}[\.]){3}[0-9]{1,3}")
+
 	# white list ipset
 	ip_lan="0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 224.0.0.0/4 240.0.0.0/4 $ss_server_ip 223.5.5.5 223.6.6.6 114.114.114.114 114.114.115.115 1.2.4.8 210.2.4.8 112.124.47.27 114.215.126.16 180.76.76.76 119.29.29.29"
 	for ip in $ip_lan
@@ -199,7 +244,7 @@ config_ipset() {
 	cat "$white_path" | sed -E '/^$|^[#;]/d' | while read line
 	do
 		if [ -z "$(echo $line | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}")" ]; then
-			echo "server=/.$line/$ss_cdn#53" >> /etc/dnsmasq.d/wblist_ipset.conf
+			echo "server=/.$line/$ss_cdn#$ss_cdn_port" >> /etc/dnsmasq.d/wblist_ipset.conf
 			echo "ipset=/.$line/white_list" >> /etc/dnsmasq.d/wblist_ipset.conf
 		else
 			ipset -! add white_list $line &> /dev/null
@@ -207,7 +252,11 @@ config_ipset() {
 	done
 	# not gfwlist over cdn
 	if [ "$ss_mode" != "gfwlist" ]; then
-		cat "$cdn_path" | sed "s/^/server=&\/./g" | sed "s/$/\/&$ss_cdn/g" | sort | awk '{if ($0!=line) print;line=$0}' >> /etc/dnsmasq.d/sscdn_ipset.conf
+        # comment user's DNS
+        sed -i "s/^[^#].*$ss_cdn#$ss_cdn_port/#&/" /etc/dnsmasq.conf
+        # set default DNS over ss
+        echo "server=127.0.0.1#$dns_port" >> /etc/dnsmasq.d/sscdn_ipset.conf
+		cat "$cdn_path" | sed "s/^/server=&\/./g" | sed "s/$/\/&$ss_cdn#$ss_cdn_port/g" | sort | awk '{if ($0!=line) print;line=$0}' >> /etc/dnsmasq.d/sscdn_ipset.conf
 	fi
 
 }
@@ -301,6 +350,8 @@ flush_nat() {
 	rm -rf /etc/dnsmasq.d/wblist_ipset.conf
 	# remove iptables config
 	rm -rf /etc/iptables/shadowsocks.rules
+    # uncomment user's DNS
+    sed -i "s/^#\(.*$ss_cdn#$ss_cdn_port\)/\1/" /etc/dnsmasq.conf
 }
 
 restart_dnsmasq() {
@@ -332,7 +383,7 @@ start() {
 	env_check
 	[ ! -f "$config_path" ] && gerneral_config
 	start_ss_redir
-        update_rules
+        update
         config_ipset
         create_nat_rules
         start_dnsproxy
@@ -345,6 +396,7 @@ case "$1" in
 	restart) stop; start "$2";;
 	status) check_status ;;
 	config) gerneral_config ;;
+    update) update force ;;
+	install) install_scripts ;;
 	*) help ;;
 esac
-
