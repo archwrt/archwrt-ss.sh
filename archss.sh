@@ -165,7 +165,7 @@ start_dnsproxy() {
 }
 
 update() {
-	echo "下载规则列表..."
+	echo "检查规则列表..."
 	if [ ! -f "$gfwlist_path" -o "$1" = "force" ]; then
 		echo "下载gfwlist规则..."
 		curl -kLo /tmp/gfwlist.conf https://github.com/hq450/fancyss/raw/master/rules/gfwlist.conf
