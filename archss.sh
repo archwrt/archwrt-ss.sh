@@ -371,6 +371,7 @@ check_status() {
 }
 
 stop() {
+	env_check
 	stop_process
 	flush_nat
 	restart_dnsmasq
@@ -378,16 +379,16 @@ stop() {
 
 start() {
 
+	env_check
 	prepare "$1"
 	echo "程序启动模式：【$ss_mode】"
-	env_check
 	[ ! -f "$config_path" ] && gerneral_config
 	start_ss_redir
-        update
-        config_ipset
-        create_nat_rules
-        start_dnsproxy
-        restart_dnsmasq
+    update
+    config_ipset
+    create_nat_rules
+    start_dnsproxy
+    restart_dnsmasq
 }
 
 case "$1" in
