@@ -10,7 +10,7 @@ remote_dns_port="53"
 ss_mode="gfwlist" # default
 ss_cdn="202.141.162.123" # for not gfwlist mode, DNS Server 202.141.162.123 is hosed by USTC LUG
 ss_cdn_port="5353" # use 5353 instead of 53 to protect from being attack
-lanip="192.168.123.1" # set it for chromecast
+lanip="" # set it for chromecast
 # File Path
 ss_redir="/usr/bin/ss-redir"
 dnsproxy="/usr/bin/dnsproxy"
