@@ -380,8 +380,8 @@ stop() {
 start() {
 
 	env_check
-	prepare "$1"
 	[ ! -f "$config_path" ] && gerneral_config
+	prepare "$1"
 	echo "程序启动模式：【$ss_mode】"
 	start_ss_redir
     update
