@@ -17,7 +17,9 @@ aurman -S dnsproxy
 >Only tested on Arch Linux
 
 ```
-wget https://github.com/monlor/Arch-Router-SS/raw/master/archss.sh | sh
+curl -skLo /tmp/archss.sh https://github.com/monlor/Arch-Router-SS/raw/master/archss.sh
+chmod +x /tmp/archss.sh
+/tmp/archss.sh install
 ```
 
 ## UNINSTALLATION
