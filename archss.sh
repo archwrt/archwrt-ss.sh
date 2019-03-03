@@ -14,9 +14,8 @@ fast_open="true"
 # DNS
 modify_resolv=true #using mount --bind to safely overwrite /etc/resolv.conf to use 127.0.0.1
 dns_port="5353"
-remote_dns_ip="8.8.8.8"
-remote_dns_port="53"
-ss_cdn="202.141.162.123" # for not gfwlist mode, DNS Server 202.141.162.123 is hosed by USTC LUG
+dot_doh="tls://dns.adguard.com" #dns_over_tls/dns_over_https for foreign domains
+ss_cdn="202.141.162.123" # for china dns, DNS Server 202.141.162.123 is hosed by USTC LUG
 ss_cdn_port="5353" # use 5353 instead of 53 to protect from being attack
 lanip="" # set it for chromecast
 
@@ -44,12 +43,13 @@ Info:
 Usage:
 	$0 {Command} {Option}
 Commands:
-	start|stop|restart|status|config|update|install
+	start|stop|restart|status|config|reset|update|install
 Options:
 	gfwlist|bypass|gamemode|whole
 	rules|script
 Example:
 	$0 start bypass	Start with bypass mode
+    $0 reset    Reset $ss_path/config to default
 	$0 restart gfwlist	Restart with gfwlist mode
 	$0 start		Start with default mode[$ss_mode]
 	$0 config		Modify server config
@@ -181,7 +181,7 @@ start_dnsproxy() {
 
 	echo "启动dnsproxy进程..."
 	# start dnsproxy
-	$dnsproxy -T -R $remote_dns_ip -P $remote_dns_port -p $dns_port -d &> /dev/null
+    nohup $dnsproxy -u $dot_doh -p $dns_port &> /dev/null &
 
 }
 
@@ -436,10 +436,15 @@ start() {
 	mount_resolv
 }
 
+reset(){
+    rm $ss_path/config
+}
+
 case "$1" in
 	start) start "$2" ;;
 	stop) stop ;;
-	restart) stop; start "$2" ;;
+    reset) reset ;;
+    restart) stop; start "$2" ;;
 	status) check_status ;;
 	config) gerneral_config ;;
 	update) update "$2" ;;
