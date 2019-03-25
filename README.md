@@ -13,6 +13,28 @@ A simple Shadowsocks transparent proxy setup script.
 * bind-tools
 * [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) - [PKGBUILD](https://github.com/archwrt/repo/tree/master/archwrt/dnsproxy)
 
+
+
+## Usage
+
+```
+$ archwrt-ss.sh --help
+Info:
+  Contibuted by monlor & edward-p
+Usage:
+  archwrt-ss.sh {Command} {Option}
+Commands:
+  start | stop | restart | status | config | update
+Options:
+  gfwlist | bypass | gamemode | global
+Example:
+  archwrt-ss.sh start bypass          Start with bypass mode
+  archwrt-ss.sh restart gfwlist       Restart with gfwlist mode
+  archwrt-ss.sh start                 Start with default mode[gfwlist]
+  archwrt-ss.sh config                Modify server config
+  archwrt-ss.sh update                Update rules
+```
+
 ## Installation
 
 ```
@@ -53,3 +75,4 @@ For auto start
 ```
 systemctl enable archwrt-ss.service
 ```
+
