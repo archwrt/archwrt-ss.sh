@@ -32,7 +32,7 @@ Before using `systemctl start archwrt-ss.service`, you need a valid `config.json
 $ sudo archwrt-ss.sh config
 ```
 
-After you're config is done, you're `config.json` will be located at `/opt/archwrt-ss/config.json`.
+When it is done, your `config.json` will be located at `/opt/archwrt-ss/config.json`.
 
 It is recommend to check if there's any error in your `config.json` by running:
 
