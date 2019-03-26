@@ -3,6 +3,13 @@ archwrt-ss.sh
 
 A simple Shadowsocks transparent proxy setup script.
 
+## Main features
+
+* GFWList Mode supported
+* Chnroute (Bypass Mainland IP) Mode supported
+* Customized Blacklist/Whitelist supported
+* Game Mode (udp redirection on both OUTPUT chains and PREROUTING chains ) supported
+
 ## Depends
 
 * shadowsocks-libev
@@ -77,3 +84,20 @@ For auto start
 systemctl enable archwrt-ss.service
 ```
 
+## Customized Blacklist/Whitelist
+
+- blacklist: by default, located at `/opt/archwrt-ss/blacklist.txt` 
+- whitelist: by default, located at `/opt/archwrt-ss/whitelist.txt` 
+
+comment with `#` is supported
+
+IP/NET/Domains suported, one line each, for example:
+
+```
+...
+# This is a comment
+127.0.0.1 #ip
+127.0.0.0/24 #net
+example.com #domain
+...
+```
