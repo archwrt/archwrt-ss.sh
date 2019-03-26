@@ -295,7 +295,7 @@ flush_nat() {
 	# flush shadowsocks rules
 	eval "`iptables -t nat -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t nat -D/"`"
 	iptables -t nat -D PREROUTING -p tcp -j SHADOWSOCKS &>/dev/null
-	iptables -t mangle -D OUTPUT -p udp -j SS_OUTPUT
+	iptables -t mangle -D OUTPUT -p udp -j SS_OUTPUT &>/dev/null
 	iptables -t nat -F SHADOWSOCKS > /dev/null 2>&1 && iptables -t nat -X SHADOWSOCKS > /dev/null 2>&1
 	eval "`iptables -t mangle -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t mangle -D/"`"
 	iptables -t mangle -D PREROUTING -p udp -j SHADOWSOCKS &>/dev/null
