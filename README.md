@@ -45,6 +45,14 @@ Example:
 
 ## Installation
 
+Install on AUR (Archlinux only)
+
+```
+yay -S archwrt-ss.sh-git
+```
+
+Install manually
+
 ```
 $ git clone https://github.com/archwrt/archwrt-ss.sh
 $ cd archwrt-ss.sh
