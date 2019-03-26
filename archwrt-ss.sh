@@ -323,8 +323,16 @@ flush_nat() {
 	# remove_route_table
 	echo "Clearing rules..."
 	ip route del local 0.0.0.0/0 dev lo table 310 &>/dev/null
+	
+	
+	# restore DNS to China DNS
+	cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
+	no-resolv
+	no-poll
+	expand-hosts
+	server=${china_dns}#${china_dns_port}
+	EOF
 	# remove dnsmasq config
-	rm -rf /etc/dnsmasq.d/10-dns.conf
 	rm -rf /etc/dnsmasq.d/20-gfwlist_ipset.conf
 	rm -rf /etc/dnsmasq.d/20-sscdn_ipset.conf
 	rm -rf /etc/dnsmasq.d/20-wblist_ipset.conf
