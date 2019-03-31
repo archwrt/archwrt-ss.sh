@@ -207,8 +207,8 @@ config_ipset() {
 	cat "${whitelist}" | sed -E '/^$|^[#;]/d' | while read line
 	do
 		if [ -z "$(echo ${line} | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}")" ]; then
-			echo "server=/.${line}/${china_dns}#${china_dns_port}" > /etc/dnsmasq.d/20-wblist_ipset.conf
-			echo "ipset=/.${line}/white_list" > /etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "server=/.${line}/${china_dns}#${china_dns_port}" >> /etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "ipset=/.${line}/white_list" >> /etc/dnsmasq.d/20-wblist_ipset.conf
 		else
 			ipset -! add white_list ${line} &> /dev/null
 		fi
@@ -260,7 +260,7 @@ create_nat_rules() {
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set white_list dst -j RETURN
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set black_list dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set ! --match-set bypass dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
-		
+
 		iptables -t mangle -N SS_OUTPUT
 		iptables -t mangle -A SS_OUTPUT -p udp -j RETURN -m set --match-set white_list dst
 		iptables -t mangle -A SS_OUTPUT -p udp -m set --match-set black_list dst -j MARK --set-mark 0x07
@@ -323,8 +323,8 @@ flush_nat() {
 	# remove_route_table
 	echo "Clearing rules..."
 	ip route del local 0.0.0.0/0 dev lo table 310 &>/dev/null
-	
-	
+
+
 	# restore DNS to China DNS
 	cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
 	no-resolv
