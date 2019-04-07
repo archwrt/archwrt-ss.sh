@@ -30,17 +30,23 @@ $ archwrt-ss.sh --help
 Info:
   Contibuted by monlor & edward-p
 Usage:
-  archwrt-ss.sh {Command} {Option}
+  archwrt-ss.sh {Command} {Option} {Config File}
 Commands:
   start | stop | restart | status | config | update
 Options:
   gfwlist | bypass | gamemode | global
+Config File:
+  Specify which config.json to use. by default the script will use the last one used.
 Example:
   archwrt-ss.sh start bypass          Start with bypass mode
   archwrt-ss.sh restart gfwlist       Restart with gfwlist mode
-  archwrt-ss.sh start                 Start with default mode[gfwlist]
-  archwrt-ss.sh config                Modify server config
+  archwrt-ss.sh restart bypass sfo2   Retart with bypass mode using /opt/archwrt-ss/sfo2.json
+  archwrt-ss.sh restart sfo2          Retart using /opt/archwrt-ss/sfo2.json
+  archwrt-ss.sh start                 Start with default mode [current:gfwlist]
+  archwrt-ss.sh config                Generate a config.json to /opt/archwrt-ss/config.json
+  archwrt-ss.sh config nyc1           Generate a config.json to /opt/archwrt-ss/nyc1.json
   archwrt-ss.sh update                Update rules
+
 ```
 
 ## Installation

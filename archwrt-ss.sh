@@ -16,21 +16,22 @@ help() {
 		Info:
 		  Contibuted by monlor & edward-p
 		Usage:
-		  $0 {Command} {Option} {Config File}
+		  ${0##/*/} {Command} {Option} {Config File}
 		Commands:
 		  start | stop | restart | status | config | update
 		Options:
 		  gfwlist | bypass | gamemode | global
 		Config File:
-			Specify which config.json to use. by default the script will use the last one used.
+		  Specify which config.json to use. by default the script will use the last one used.
 		Example:
-		  $0 start bypass		Start with bypass mode
-		  $0 restart gfwlist	Restart with gfwlist mode
-			$0 restart bypass sfo2	will Retart with bypass mode using ${ss_dir}/sfo2.json
-		  $0 start			Start with default mode [current:${ss_mode}]
-		  $0 config		Generate a config.json to ${ss_dir}/config.json
-		  $0 config nyc1		Generate a config.json to ${ss_dir}/nyc1.json
-		  $0 update		Update rules
+		  ${0##/*/} start bypass          Start with bypass mode
+		  ${0##/*/} restart gfwlist       Restart with gfwlist mode
+		  ${0##/*/} restart bypass sfo2   Retart with bypass mode using ${ss_dir}/sfo2.json
+		  ${0##/*/} restart sfo2          Retart using /opt/archwrt-ss/sfo2.json
+		  ${0##/*/} start                 Start with default mode [current:${ss_mode}]
+		  ${0##/*/} config                Generate a config.json to ${ss_dir}/config.json
+		  ${0##/*/} config nyc1           Generate a config.json to ${ss_dir}/nyc1.json
+		  ${0##/*/} update                Update rules
 	EOF
 
 }
