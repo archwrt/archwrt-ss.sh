@@ -168,7 +168,7 @@ start_dnsproxy() {
 
 	echo "Starting dnsproxy..."
 	# start dnsproxy
-	nohup ${dnsproxy} -u "${dot_doh}" -p "${dp_port}" &>/dev/null &
+	nohup ${dnsproxy} -u "${dot_doh}" -f "${dot_doh_fb}" -p "${dp_port}" &>/dev/null &
 
 }
 
