@@ -93,9 +93,7 @@ resolveip() {
 	if [[ $1 =~ "^([0-9]{1,3}\.){3}[0-9]{1,3}$" ]]; then
 		echo $1
 	else
-		local IP=$(dig $1 | grep -Ev "^$|^[[:space:]]*$|^[#;]" |
-			grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}$" |
-			head -1)
+		local IP=$(dig $1 +short | head -1)
 		[ -z "${IP}" ] && return 1 || echo ${IP}
 	fi
 }
