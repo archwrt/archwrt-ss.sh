@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #contibuted by monlor & edward-p
 
 ss_dir="/opt/archwrt-ss"
@@ -168,7 +168,7 @@ start_dnsproxy() {
 
 	echo "Starting dnsproxy..."
 	# start dnsproxy
-	nohup ${dnsproxy} -u "${dot_doh}" -f "${dot_doh_fb}" -p "${dp_port}" &>/dev/null &
+	nohup ${dnsproxy} $(printf -- '-u %s ' "${dot_dohs[@]}") --all-servers -p "${dp_port}" &>/dev/null &
 
 }
 
