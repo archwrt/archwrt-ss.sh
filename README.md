@@ -19,7 +19,7 @@ A simple Shadowsocks transparent proxy setup script.
 * ipset
 * iptables
 * bind-tools
-* [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) - [PKGBUILD](https://github.com/archwrt/repo/tree/master/archwrt/dnsproxy)
+* [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional) - [PKGBUILD](https://github.com/archwrt/repo/tree/master/archwrt/dnsproxy)
 
 
 
