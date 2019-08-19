@@ -399,7 +399,7 @@ umount_resolv() {
 
 check_status() {
 	[ -n "$(pidof ss-redir)" ] && echo "ss-redir running pid:$(pidof ss-redir) with \"${ss_config}\"" || echo "ss-reidr stoped"
-	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_doh}\"" || echo "dnsproxy stopped"
+	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_dohs[@]}\"" || echo "dnsproxy stopped"
 	[ -n "$(iptables -t nat -S | grep SHADOWSOCKS)" ] && echo "nat rules added with [${ss_mode}]" || echo "no nat rules"
 	[ -n "$(iptables -t mangle -S | grep SHADOWSOCKS)" ] && echo "udp rules added" || echo "no udp rules"
 
