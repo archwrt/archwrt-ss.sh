@@ -391,7 +391,7 @@ mount_resolv() {
 }
 
 umount_resolv() {
-	if [ "${overwrite_resolv}" = "true" ]; then
+    if [ -n "$(mount | grep '/etc/resolv.conf')" ]; then
 		echo "Releasing /etc/resolv.conf..."
 		umount /etc/resolv.conf &>/dev/null
 	fi
@@ -402,6 +402,7 @@ check_status() {
 	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_dohs[@]}\"" || echo "dnsproxy stopped"
 	[ -n "$(iptables -t nat -S | grep SHADOWSOCKS)" ] && echo "nat rules added with [${ss_mode}]" || echo "no nat rules"
 	[ -n "$(iptables -t mangle -S | grep SHADOWSOCKS)" ] && echo "udp rules added" || echo "no udp rules"
+    [ -n "$(mount | grep '/etc/resolv.conf')" ] && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed"
 
 }
 
@@ -425,6 +426,8 @@ start() {
 	start_dnsproxy
 	restart_dnsmasq
 	mount_resolv
+    echo "----- status -----"
+    check_status
 }
 
 case "$1" in
