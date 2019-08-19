@@ -201,7 +201,6 @@ config_ipset() {
 
 	echo "Setting up ipset..."
 	pure_dns_port="$([ -n "${custom_puredns_port}" ] && echo ${custom_puredns_port} || echo ${dp_port})"
-	echo "pure_dns_port: ${pure_dns_port}"
 	ipset -! create white_list nethash && ipset flush white_list
 	ipset -! create black_list nethash && ipset flush black_list
 	if [ "${ss_mode}" = "gfwlist" ]; then
