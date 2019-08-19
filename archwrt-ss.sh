@@ -85,7 +85,7 @@ env_check() {
 	!(hash ipset &> /dev/null) && echo "Please install ipset!" && exit 1
 	!(hash iptables &> /dev/null) && echo "Please install iptables！" && exit 1
 	!(hash dig &> /dev/null) && echo "Please install bind-tools!" && exit 1
-	!(hash dnsproxy-adguard &> /dev/null) && echo "Please install dnsproxy-adguard!" && exit 1
+	!(hash dnsproxy-adguard &> /dev/null) && [ -z ${custom_puredns_port} ] && echo "Please install dnsproxy-adguard or set custom_puredns_port in ${_conf}!" && exit 1
 }
 
 resolveip() {
@@ -163,11 +163,11 @@ start_ss_redir() {
 }
 
 start_dnsproxy() {
-
-	echo "Starting dnsproxy..."
-	# start dnsproxy
-	nohup ${dnsproxy} $(printf -- '-u %s ' "${dot_dohs[@]}") --all-servers -p "${dp_port}" &>/dev/null &
-
+	if [ -z "${custom_puredns_port}" ]; then
+		echo "Starting dnsproxy..."
+		# start dnsproxy
+		nohup ${dnsproxy} $(printf -- '-u %s ' "${dot_dohs[@]}") --all-servers -p "${dp_port}" &>/dev/null &
+	fi
 }
 
 update_rules() {
@@ -200,13 +200,15 @@ update_rules() {
 config_ipset() {
 
 	echo "Setting up ipset..."
+	pure_dns_port="$([ -n "${custom_puredns_port}" ] && echo ${custom_puredns_port} || echo ${dp_port})"
+	echo "pure_dns_port: ${pure_dns_port}"
 	ipset -! create white_list nethash && ipset flush white_list
 	ipset -! create black_list nethash && ipset flush black_list
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# gfwlist dnsmasq
 		ipset -! create gfwlist nethash && ipset flush gfwlist
 		cat "${gfwlist}" >/etc/dnsmasq.d/20-gfwlist_ipset.conf
-		sed -i "s/7913/${dp_port}/g" /etc/dnsmasq.d/20-gfwlist_ipset.conf
+		sed -i "s/7913/${pure_dns_port}/g" /etc/dnsmasq.d/20-gfwlist_ipset.conf
 	elif [ "${ss_mode}" = "bypass" -o "${ss_mode}" = "gamemode" ]; then
 		# bypass ipset
 		ipset -! create bypass nethash && ipset flush bypass
@@ -230,7 +232,7 @@ config_ipset() {
 	cat /dev/null >/etc/dnsmasq.d/20-wblist_ipset.conf
 	cat "${blacklist}" | sed -E '/^$|^[#;]/d' | while read line; do
 		if [ -z "$(echo ${line} | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}")" ]; then
-			echo "server=/.${line}/127.0.0.1#${dp_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "server=/.${line}/127.0.0.1#${pure_dns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 			echo "ipset=/.${line}/black_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 		else
 			ipset -! add black_list ${line} &>/dev/null
@@ -260,7 +262,7 @@ config_ipset() {
 			no-resolv
 			no-poll
 			expand-hosts
-			server=127.0.0.1#${dp_port}
+			server=127.0.0.1#${pure_dns_port}
 		EOF
 		# set cdn over China DNS
 		cat "${cdn}" | sed "s/^/server=&\/./g" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
@@ -391,18 +393,18 @@ mount_resolv() {
 }
 
 umount_resolv() {
-    if [ -n "$(mount | grep '/etc/resolv.conf')" ]; then
+	if [ -n "$(mount | grep '/etc/resolv.conf')" ]; then
 		echo "Releasing /etc/resolv.conf..."
 		umount /etc/resolv.conf &>/dev/null
 	fi
 }
 
 check_status() {
-	[ -n "$(pidof ss-redir)" ] && echo "ss-redir running pid:$(pidof ss-redir) with \"${ss_config}\"" || echo "ss-reidr stoped"
-	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_dohs[@]}\"" || echo "dnsproxy stopped"
+	[ -n "$(pidof ss-redir)" ] && echo "ss-redir running pid:$(pidof ss-redir) with \"${ss_config}\"" || echo "ss-reidr stopped"
+	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_dohs[@]}\"" || ([ -n "${custom_puredns_port}" ] && echo "using custom pure dns on port ${custom_puredns_port}" || echo "dnsproxy stopped")
 	[ -n "$(iptables -t nat -S | grep SHADOWSOCKS)" ] && echo "nat rules added with [${ss_mode}]" || echo "no nat rules"
 	[ -n "$(iptables -t mangle -S | grep SHADOWSOCKS)" ] && echo "udp rules added" || echo "no udp rules"
-    [ -n "$(mount | grep '/etc/resolv.conf')" ] && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed"
+	[ -n "$(mount | grep '/etc/resolv.conf')" ] && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed"
 
 }
 
@@ -426,8 +428,8 @@ start() {
 	start_dnsproxy
 	restart_dnsmasq
 	mount_resolv
-    echo "----- status -----"
-    check_status
+	echo "----- status -----"
+	check_status
 }
 
 case "$1" in
