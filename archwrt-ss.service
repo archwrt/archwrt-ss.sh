@@ -1,13 +1,12 @@
 [Unit]
 Description=archwrt-ss.sh transparent proxy script
 ConditionFileIsExecutable=/usr/bin/archwrt-ss.sh
-ConditionFileNotEmpty=/opt/archwrt-ss/archwrt-ss.conf
+ConditionFileNotEmpty=/etc/archwrt-ss/archwrt-ss.conf
 Requires=network.target network-online.target
 After=network.target network-online.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
 ExecStart=/usr/bin/archwrt-ss.sh start
 ExecStop=/usr/bin/archwrt-ss.sh stop
 ExecReload=/usr/bin/archwrt-ss.sh restart
