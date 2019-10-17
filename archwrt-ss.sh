@@ -102,7 +102,7 @@ update_rules() {
 
 	if [ ! -f "${chnroute}" ] || [ "$1" = "f" ]; then
 		echo "Downloading chnroute.txt..."
-		curl -kLo /tmp/chnroute.txt "$URL/rules/chnroute.txt" &&
+		! curl -kLo /tmp/chnroute.txt "$URL/rules/chnroute.txt" &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
@@ -110,7 +110,7 @@ update_rules() {
 
 	if [ ! -f "${cdn}" ] || [ "$1" = "f" ]; then
 		echo "Downloading cdn.txt..."
-		curl -kLo /tmp/cdn.txt "$URL/rules/cdn.txt" &&
+		! curl -kLo /tmp/cdn.txt "$URL/rules/cdn.txt" &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/cdn.txt "${cdn}" &>/dev/null
 		rm /tmp/cdn.txt
@@ -256,7 +256,7 @@ create_nat_rules() {
 
 stop_service() {
 	echo "Stopping process..."
-	
+
 	systemctl stop shadowsocks-libev-redir@"${ss_config}"
 }
 
