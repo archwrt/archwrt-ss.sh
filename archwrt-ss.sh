@@ -332,7 +332,7 @@ mount_resolv() {
 }
 
 umount_resolv() {
-	if ! mount | grep -q '/etc/resolv.conf'; then
+	if mount | grep -q '/etc/resolv.conf'; then
 		echo "Releasing /etc/resolv.conf..."
 		umount /etc/resolv.conf &>/dev/null
 	fi

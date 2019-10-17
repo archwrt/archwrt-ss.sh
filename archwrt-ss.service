@@ -7,6 +7,7 @@ After=network.target network-online.target
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/archwrt-ss.sh start
 ExecStop=/usr/bin/archwrt-ss.sh stop
 ExecReload=/usr/bin/archwrt-ss.sh restart
