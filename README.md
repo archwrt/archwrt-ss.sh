@@ -18,21 +18,19 @@ A simple Shadowsocks transparent proxy setup script.
 * dnsmasq
 * ipset
 * iptables
-* bind-tools
-* [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional) - [PKGBUILD](https://github.com/archwrt/repo/tree/master/archwrt/dnsproxy)
+* [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional)
 
 
 
 ## Usage
 
 ```
-$ archwrt-ss.sh --help
 Info:
   Contibuted by monlor & edward-p
 Usage:
   archwrt-ss.sh {Command} {Option} {Config File}
 Commands:
-  start | stop | restart | status | config | update
+  start | stop | restart | status | update
 Options:
   gfwlist | bypass | gamemode | global
 Config File:
@@ -40,11 +38,9 @@ Config File:
 Example:
   archwrt-ss.sh start bypass          Start with bypass mode
   archwrt-ss.sh restart gfwlist       Restart with gfwlist mode
-  archwrt-ss.sh restart bypass sfo2   Retart with bypass mode using /opt/archwrt-ss/sfo2.json
-  archwrt-ss.sh restart sfo2          Retart using /opt/archwrt-ss/sfo2.json
-  archwrt-ss.sh start                 Start with default mode [current:gfwlist]
-  archwrt-ss.sh config                Generate a config.json to /opt/archwrt-ss/config.json
-  archwrt-ss.sh config nyc1           Generate a config.json to /opt/archwrt-ss/nyc1.json
+  archwrt-ss.sh restart bypass sfo2   Retart with bypass mode using /etc/archwrt-ss/sfo2.json
+  archwrt-ss.sh restart sfo2          Retart using /etc/shadowsocks/sfo2.json
+  archwrt-ss.sh start                 Start with default mode [current:bypass]
   archwrt-ss.sh update                Update rules
 
 ```
@@ -63,36 +59,34 @@ Install manually
 $ git clone https://github.com/archwrt/archwrt-ss.sh
 $ cd archwrt-ss.sh
 $ sudo install -Dm755 archwrt-ss.sh /usr/bin/archwrt-ss.sh
-$ sudo install -Dm644 archwrt-ss.conf /opt/archwrt-ss/archwrt-ss.conf
+$ sudo install -Dm644 archwrt-ss.conf /etc/archwrt-ss/archwrt-ss.conf
 $ sudo install -Dm644 archwrt-ss.service /usr/lib/systemd/system/archwrt-ss.service
 $ sudo systemctl daemon-reload
 ```
 
 ## Start
 
-Before using `systemctl start archwrt-ss.service`, you need a valid `config.json` for shadowsocks, the following command will start a wizzard for that.
+The script use `systemctl start shadowsocks-libev-redir@${ss_conf}` to start ss-redir.
+
+You need set up your config name (without extension `.json`) to `ss_conf` in `/etc/archwrt-ss/archwrt-ss.conf`
+
+You need write your `${ss_conf}.json` in `/etc/shadowsocks`
+
+Check if there's any error, for example:
 
 ```
-$ sudo archwrt-ss.sh config
+$ ss-redir -c /etc/shadowsocks/config.json
 ```
 
-When it is done, your `config.json` will be located at `/opt/archwrt-ss/config.json`.
+Not yet, you need set `puredns_port` in `/etc/archwrt-ss/archwrt-ss.conf` as the upstream of the dnsmasq.
 
-It is recommend to check if there's any error in your `config.json` by running:
-
-```
-$ ss-redir -c /opt/archwrt-ss/config.json
-```
-
-Not yet, you may want to have a look on `/opt/archwrt-ss/archwrt-ss.conf`. Change some configs if you like.
-
-Now you can start by
+Now you can start by:
 
 ```
 $ sudo systemctl start archwrt-ss.service
 ```
 
-For auto start
+For auto start:
 
 ```
 systemctl enable archwrt-ss.service
@@ -100,8 +94,8 @@ systemctl enable archwrt-ss.service
 
 ## Customized Blacklist/Whitelist
 
-- blacklist: by default, located at `/opt/archwrt-ss/blacklist.txt` 
-- whitelist: by default, located at `/opt/archwrt-ss/whitelist.txt` 
+- blacklist: by default, located at `/etc/archwrt-ss/blacklist.txt` 
+- whitelist: by default, located at `/etc/archwrt-ss/whitelist.txt` 
 
 comment with `#` is supported
 

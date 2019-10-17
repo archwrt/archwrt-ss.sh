@@ -1,7 +1,8 @@
 #!/bin/bash
 #contibuted by monlor & edward-p
 
-ss_dir="/opt/archwrt-ss"
+ss_config_dir="/etc/shadowsocks"
+ss_dir="/etc/archwrt-ss"
 _conf="${ss_dir}/archwrt-ss.conf"
 
 if [ ! -f "${_conf}" ]; then
@@ -18,7 +19,7 @@ help() {
 		Usage:
 		  ${0##/*/} {Command} {Option} {Config File}
 		Commands:
-		  start | stop | restart | status | config | update
+		  start | stop | restart | status | update
 		Options:
 		  gfwlist | bypass | gamemode | global
 		Config File:
@@ -27,10 +28,8 @@ help() {
 		  ${0##/*/} start bypass          Start with bypass mode
 		  ${0##/*/} restart gfwlist       Restart with gfwlist mode
 		  ${0##/*/} restart bypass sfo2   Retart with bypass mode using ${ss_dir}/sfo2.json
-		  ${0##/*/} restart sfo2          Retart using /opt/archwrt-ss/sfo2.json
+		  ${0##/*/} restart sfo2          Retart using /etc/shadowsocks/sfo2.json
 		  ${0##/*/} start                 Start with default mode [current:${ss_mode}]
-		  ${0##/*/} config                Generate a config.json to ${ss_dir}/config.json
-		  ${0##/*/} config nyc1           Generate a config.json to ${ss_dir}/nyc1.json
 		  ${0##/*/} update                Update rules
 	EOF
 
@@ -42,7 +41,8 @@ prepare() {
 	[ ! -f "${whitelist}" ] && touch "${whitelist}"
 	[ ! -f "${blacklist}" ] && touch "${blacklist}"
 	[ ! -d /etc/dnsmasq.d ] && mkdir -p /etc/dnsmasq.d
-	[ -z "$(cat /etc/dnsmasq.conf | grep "^conf-dir")" ] && echo "conf-dir=/etc/dnsmasq.d/,*.conf" >>/etc/dnsmasq.conf
+	! grep -q "^conf-dir" /etc/dnsmasq.conf &&
+		echo "conf-dir=/etc/dnsmasq.d/,*.conf" >>/etc/dnsmasq.conf
 	[ "$(cat /proc/sys/net/ipv4/ip_forward)" != '1' ] && echo 1 >/proc/sys/net/ipv4/ip_forward
 
 	while [ $# -gt 0 ]; do
@@ -52,146 +52,66 @@ prepare() {
 			sed -i "s,ss_mode=.*,ss_mode=\"$1\",g" "${_conf}"
 			shift
 			;;
-		"") shift ;;
+		#"") shift ;;
 		*)
-			if [ -f "${ss_dir}/$1.json" ]; then
-				ss_config="${ss_dir}/$1.json"
-			else
-				echo "Warning:\"${ss_dir}/$1.json\" no such file or directory. use \"${ss_dir}/config.json\" instead."
-				ss_config="${ss_dir}/config.json"
+			if [ ! -f "${ss_config_dir}/$1.json" ]; then
+				echo "No shadowsocks config file found: ${ss_config_dir}/$1.json !" 1>&2 && exit 1
+			fi
+			if [ "${ss_config}" != "$1" ]; then
+				ss_config="$1"
+				sed -i "s,ss_config=.*,ss_config=\"${ss_config}\",g" "${_conf}"
 			fi
 			shift
 			;;
 		esac
 	done
 
-	if [ ! -f "${ss_config}" ]; then
-		_ss_conf_name="${ss_config##/*/}"
-		generate_config "${_ss_conf_name%%.*}"
-	fi
-	sed -i "s,ss_config=.*,ss_config=\"\${ss_dir}/${ss_config##/*/}\",g" "${_conf}"
-	local_port=$(cat ${ss_config} |
-		grep "local_port" |
-		sed 's,[ "A-z:,],,g')
-
+	ss_server_ip=$(grep "server" "${ss_config_dir}/${ss_config}.json" | grep -oE "([0-9]{1,3}[\.]){3}[0-9]{1,3}")
+	local_port=$(grep "local_port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+")
 }
 
 env_check() {
 
 	echo "Checking environment..."
 	[ "$(whoami)" != "root" ] && echo "Please run as root!" && exit 1
-	!(hash ss-redir &> /dev/null) && echo "Please install shadowsocks-libev!" && exit 1
-	!(hash curl &> /dev/null) && echo "Please install curl!" && exit 1
-	!(hash ipset &> /dev/null) && echo "Please install ipset!" && exit 1
-	!(hash iptables &> /dev/null) && echo "Please install iptables！" && exit 1
-	!(hash dig &> /dev/null) && echo "Please install bind-tools!" && exit 1
-	!(hash dnsproxy-adguard &> /dev/null) && [ -z ${custom_puredns_port} ] && echo "Please install dnsproxy-adguard or set custom_puredns_port in ${_conf}!" && exit 1
-}
-
-resolveip() {
-
-	if [[ $1 =~ "^([0-9]{1,3}\.){3}[0-9]{1,3}$" ]]; then
-		echo $1
-	else
-		local IP=$(dig $1 +short | head -1)
-		[ -z "${IP}" ] && return 1 || echo ${IP}
-	fi
-}
-
-generate_config() {
-	if [ -n "$1" ]; then
-		ss_config="${ss_dir}/$1.json"
-	fi
-	if [ -f "${ss_config}" ]; then
-		printf "\"${ss_config}\" is already exist, overwrite it? [y/n]"
-		read ans
-		if [ "${ans}" != "y" -a "${ans}" != "Y" ]; then
-			echo "Abort..."
-			exit 0
-		fi
-	fi
-	echo "Creating config.json to ${ss_config}..."
-	ciphers="aes-256-gcm aes-192-gcm aes-128-gcm aes-256-ctr aes-192-ctr aes-128-ctr aes-256-cfb aes-192-cfb aes-128-cfb camellia-128-cfb camellia-192-cfb camellia-256-cfb xchacha20-ietf-poly1305 chacha20-ietf-poly1305 chacha20-ietf chacha20 salsa20 rc4-md5"
-	echo "---------------------------------------"
-	echo "|*********** Configuration ***********|"
-	echo "---------------------------------------"
-	printf "Server:"
-	read ss_server_ip
-	printf "Port:"
-	read ss_server_port
-	printf "Local Port:"
-	read local_port
-	printf "Password:"
-	read ss_server_passwd
-	printf "Timeout:"
-	read timeout
-	echo "${ciphers}" | tr " " "\n" | grep -n . | sed -e "s/:/) /g"
-	printf "Method:"
-	read ss_server_method
-	printf "Fast Open(true|false):"
-	read fast_open
-	printf "Plugin:"
-	read plugin
-	printf "Plugin Opts:"
-	read plugin_opts
-	[ -n "${ss_server_method}" ] && ss_server_method="$(echo ${ciphers} | tr ' ' '\n' | sed -n "${ss_server_method}"p)"
-	ss_server_ip="$(resolveip ${ss_server_ip})" || (echo "resolve server ip failed!" && exit 1)
-	cat >${ss_config} <<-EOF
-		{
-			"server": "${ss_server_ip}",
-			"server_port": ${ss_server_port},
-			"local_address": "0.0.0.0",
-			"local_port": ${local_port},
-			"password": "${ss_server_passwd}",
-			"timeout": ${timeout},
-			"method": "${ss_server_method}",
-			"mode": "tcp_and_udp",
-			"fast_open": ${fast_open},
-			"plugin": "${plugin}",
-			"plugin_opts": "${plugin_opts}"
-		}
-	EOF
-
+	! hash ss-redir &>/dev/null && echo "Please install shadowsocks-libev!" && exit 1
+	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
+	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
+	! hash iptables &>/dev/null && echo "Please install iptables！" && exit 1
+	[ -z ${puredns_port} ] && echo "Please set puredns_port in ${_conf}!" && exit 1
 }
 
 start_ss_redir() {
 
 	echo "Starting ss-redir..."
 	# Start ss-redir
-	${ss_redir} -c ${ss_config} -f /var/run/ss-redir.pid &>/dev/null
+	systemctl start shadowsocks-libev-redir@"${ss_config}".service
 
-}
-
-start_dnsproxy() {
-	if [ -z "${custom_puredns_port}" ]; then
-		echo "Starting dnsproxy..."
-		# start dnsproxy
-		nohup ${dnsproxy} $(printf -- '-u %s ' "${dot_dohs[@]}") --all-servers -p "${dp_port}" &>/dev/null &
-	fi
 }
 
 update_rules() {
 	echo "Checking rules..."
-	if [ ! -f ${gfwlist} -o "$1" = "f" ]; then
+	local URL="https://github.com/hq450/fancyss/raw/master"
+	if [ ! -f "${gfwlist}" ] || [ "$1" = "f" ]; then
 		echo "Downloading gfwlist.txt..."
-		curl -kLo /tmp/gfwlist.conf https://github.com/hq450/fancyss/raw/master/rules/gfwlist.conf
-		[ $? -ne 0 ] && echo "Download failed! Check your connection!" && exit 1
+		! curl -kLo /tmp/gfwlist.conf "$URL/rules/gfwlist.conf" &&
+			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/gfwlist.conf "${gfwlist}" &>/dev/null
 		rm /tmp/gfwlist.conf
 	fi
 
-	if [ ! -f ${chnroute} -o "$1" = "f" ]; then
+	if [ ! -f "${chnroute}" ] || [ "$1" = "f" ]; then
 		echo "Downloading chnroute.txt..."
-		curl -kLo /tmp/chnroute.txt https://github.com/hq450/fancyss/raw/master/rules/chnroute.txt
-		[ $? -ne 0 ] && echo "Download failed! Check your connection!" && exit 1
+		curl -kLo /tmp/chnroute.txt "$URL/rules/chnroute.txt" &&
+			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
 	fi
 
-	if [ ! -f ${cdn} -o "$1" = "f" ]; then
+	if [ ! -f "${cdn}" ] || [ "$1" = "f" ]; then
 		echo "Downloading cdn.txt..."
-		curl -kLo /tmp/cdn.txt https://github.com/hq450/fancyss/raw/master/rules/cdn.txt
-		[ $? -ne 0 ] && echo "Download failed! Check your connection!" && exit 1
+		curl -kLo /tmp/cdn.txt "$URL/rules/cdn.txt" &&
+			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/cdn.txt "${cdn}" &>/dev/null
 		rm /tmp/cdn.txt
 	fi
@@ -200,15 +120,14 @@ update_rules() {
 config_ipset() {
 
 	echo "Setting up ipset..."
-	pure_dns_port="$([ -n "${custom_puredns_port}" ] && echo ${custom_puredns_port} || echo ${dp_port})"
 	ipset -! create white_list nethash && ipset flush white_list
 	ipset -! create black_list nethash && ipset flush black_list
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# gfwlist dnsmasq
 		ipset -! create gfwlist nethash && ipset flush gfwlist
 		cat "${gfwlist}" >/etc/dnsmasq.d/20-gfwlist_ipset.conf
-		sed -i "s/7913/${pure_dns_port}/g" /etc/dnsmasq.d/20-gfwlist_ipset.conf
-	elif [ "${ss_mode}" = "bypass" -o "${ss_mode}" = "gamemode" ]; then
+		sed -i "s/7913/${puredns_port}/g" /etc/dnsmasq.d/20-gfwlist_ipset.conf
+	elif [ "${ss_mode}" = "bypass" ] || [ "${ss_mode}" = "gamemode" ]; then
 		# bypass ipset
 		ipset -! create bypass nethash && ipset flush bypass
 		sed -e "s/^/-A bypass &/g" "${chnroute}" | ipset -R -!
@@ -217,33 +136,52 @@ config_ipset() {
 	# Telegram IPs
 	ip_tg="149.154.0.0/16 91.108.4.0/22 91.108.56.0/24 109.239.140.0/24 67.198.55.0/24"
 	for ip in ${ip_tg}; do
-		ipset -! add black_list ${ip} &>/dev/null
+		ipset -! add black_list "${ip}" &>/dev/null
 	done
 
-	ss_server_ip=$(cat ${ss_config} | grep server | grep -oE "([0-9]{1,3}[\.]){3}[0-9]{1,3}")
-
 	# white list ipset
-	ip_lan="0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 224.0.0.0/4 240.0.0.0/4 ${ss_server_ip} ${china_dns} 223.5.5.5 223.6.6.6 114.114.114.114 114.114.115.115 1.2.4.8 210.2.4.8 112.124.47.27 114.215.126.16 180.76.76.76 119.29.29.29"
-	for ip in ${ip_lan}; do
-		ipset -! add white_list ${ip} &>/dev/null
+	local ip_whitelist=(
+		'0.0.0.0/8'
+		'10.0.0.0/8'
+		'100.64.0.0/10'
+		'127.0.0.0/8'
+		'169.254.0.0/16'
+		'172.16.0.0/12'
+		'192.168.0.0/16'
+		'224.0.0.0/4'
+		'240.0.0.0/4'
+		"${ss_server_ip}"
+		"${china_dns}"
+		'223.5.5.5'
+		'223.6.6.6'
+		'114.114.114.114'
+		'114.114.115.115'
+		'1.2.4.8'
+		'210.2.4.8'
+		'112.124.47.27'
+		'114.215.126.16'
+		'180.76.76.76'
+		'119.29.29.29')
+	for ip in "${ip_whitelist[@]}"; do
+		ipset -! add white_list "${ip}" &>/dev/null
 	done
 	# add custom black list
 	cat /dev/null >/etc/dnsmasq.d/20-wblist_ipset.conf
-	cat "${blacklist}" | sed -E '/^$|^[#;]/d' | while read line; do
-		if [ -z "$(echo ${line} | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}")" ]; then
-			echo "server=/.${line}/127.0.0.1#${pure_dns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+	sed -E '/^$|^[#;]/d' "${blacklist}" | while read -r line; do
+		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
+			echo "server=/.${line}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 			echo "ipset=/.${line}/black_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 		else
-			ipset -! add black_list ${line} &>/dev/null
+			ipset -! add black_list "${line}" &>/dev/null
 		fi
 	done
 	# add custom white list
-	cat "${whitelist}" | sed -E '/^$|^[#;]/d' | while read line; do
-		if [ -z "$(echo ${line} | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}")" ]; then
+	sed -E '/^$|^[#;]/d' "${whitelist}" | while read -r line; do
+		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
 			echo "server=/.${line}/${china_dns}#${china_dns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 			echo "ipset=/.${line}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
 		else
-			ipset -! add white_list ${line} &>/dev/null
+			ipset -! add white_list "${line}" &>/dev/null
 		fi
 	done
 	# not gfwlist over cdn
@@ -261,10 +199,10 @@ config_ipset() {
 			no-resolv
 			no-poll
 			expand-hosts
-			server=127.0.0.1#${pure_dns_port}
+			server=127.0.0.1#${puredns_port}
 		EOF
 		# set cdn over China DNS
-		cat "${cdn}" | sed "s/^/server=&\/./g" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
+		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
 			sort | awk '{if ($0!=line) print;line=$0}' >/etc/dnsmasq.d/20-sscdn_ipset.conf
 	fi
 
@@ -316,10 +254,10 @@ create_nat_rules() {
 
 }
 
-stop_process() {
+stop_service() {
 	echo "Stopping process..."
-	[ -n "$(pidof ss-redir)" ] && killall -9 ss-redir && rm -rf /var/run/ss-redir.pid
-	[ -n "$(pidof dnsproxy-adguard)" ] && killall -9 dnsproxy-adguar
+	
+	systemctl stop shadowsocks-libev-redir@"${ss_config}"
 }
 
 flush_nat() {
@@ -336,20 +274,21 @@ flush_nat() {
 	iptables -t mangle -F SS_OUTPUT &>/dev/null && iptables -t mangle -X SS_OUTPUT &>/dev/null
 	iptables -t nat -D OUTPUT -p tcp -j SHADOWSOCKS &>/dev/null
 	# flush dns_redir rule
-	eval $(iptables -t nat -S | grep "dns_redir" | head -1 | sed -e "s/-A/iptables -t nat -D/") &>/dev/null
+	eval "$(iptables -t nat -S | grep "dns_redir" | head -1 | sed -e "s/-A/iptables -t nat -D/")" &>/dev/null
 	# flush ipset
 	ipset -F bypass &>/dev/null && ipset -X bypass &>/dev/null
 	ipset -F white_list &>/dev/null && ipset -X white_list &>/dev/null
 	ipset -F black_list &>/dev/null && ipset -X black_list &>/dev/null
 	ipset -F gfwlist &>/dev/null && ipset -X gfwlist &>/dev/null
 	# remove_redundant_rule
-	ip_rule_exist=$(ip rule show | grep "fwmark 0x7 lookup 310" | grep -c 310)
-	if [ ! -z "ip_rule_exist" ]; then
+	ip_rule_exist="$(ip rule show | grep "fwmark 0x7 lookup 310" | grep -c 310)"
+	local ip_rule_exist
+	if [ -n "${ip_rule_exist}" ]; then
 		echo "Clearing duplicated rules..."
 		until [ "${ip_rule_exist}" = 0 ]; do
 			#ip rule del fwmark 0x07 table 310
 			ip rule del fwmark 0x07 table 310 pref 789
-			ip_rule_exist=$(expr ${ip_rule_exist} - 1)
+			ip_rule_exist=$((ip_rule_exist - 1))
 		done
 	fi
 	# remove_route_table
@@ -379,37 +318,41 @@ restart_dnsmasq() {
 mount_resolv() {
 	if [ "${overwrite_resolv}" = "true" ]; then
 		RESOLV=$(mktemp)
-		chmod 644 ${RESOLV}
-		cat >${RESOLV} <<-EOF
+		local RESOLV
+		chmod 644 "${RESOLV}"
+		cat >"${RESOLV}" <<-EOF
 			# Generated by archwrt-ss.sh
 			nameserver 127.0.0.1
 		EOF
 
 		echo "Binding /etc/resolv.conf..."
-		mount --bind ${RESOLV} /etc/resolv.conf
-		rm ${RESOLV}
+		mount --bind "${RESOLV}" /etc/resolv.conf
+		rm "${RESOLV}"
 	fi
 }
 
 umount_resolv() {
-	if [ -n "$(mount | grep '/etc/resolv.conf')" ]; then
+	if ! mount | grep -q '/etc/resolv.conf'; then
 		echo "Releasing /etc/resolv.conf..."
 		umount /etc/resolv.conf &>/dev/null
 	fi
 }
 
 check_status() {
-	[ -n "$(pidof ss-redir)" ] && echo "ss-redir running pid:$(pidof ss-redir) with \"${ss_config}\"" || echo "ss-reidr stopped"
-	[ -n "$(pidof dnsproxy-adguard)" ] && echo "dnsproxy running pid:$(pidof dnsproxy-adguard) with \"${dot_dohs[@]}\"" || ([ -n "${custom_puredns_port}" ] && echo "using custom pure dns on port ${custom_puredns_port}" || echo "dnsproxy stopped")
-	[ -n "$(iptables -t nat -S | grep SHADOWSOCKS)" ] && echo "nat rules added with [${ss_mode}]" || echo "no nat rules"
-	[ -n "$(iptables -t mangle -S | grep SHADOWSOCKS)" ] && echo "udp rules added" || echo "no udp rules"
-	[ -n "$(mount | grep '/etc/resolv.conf')" ] && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed"
+	echo '----------- status --------------'
+	systemctl status --no-pager shadowsocks-libev-redir@"${ss_config}"
+	echo '---------------------------------'
+	systemctl status --no-pager "${puredns_service_name}"
+	echo '---------------------------------'
+	iptables -t nat -S | grep -q SHADOWSOCKS && echo "NAT rules added with [${ss_mode}]." || echo "No NAT rules added."
+	iptables -t mangle -S | grep -q SHADOWSOCKS && echo "UDP rules added." || echo "No UDP rules added."
+	mount | grep -q '/etc/resolv.conf' && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed."
 
 }
 
 stop() {
 	env_check
-	stop_process
+	stop_service
 	flush_nat
 	restart_dnsmasq
 	umount_resolv
@@ -424,22 +367,20 @@ start() {
 	update_rules
 	config_ipset
 	create_nat_rules
-	start_dnsproxy
 	restart_dnsmasq
 	mount_resolv
-	echo "----- status -----"
 	check_status
 }
 
 case "$1" in
-start) start "$2" "$3" ;;
+start) shift; start "$@";;
 stop) stop ;;
 restart)
+	shift
 	stop
-	start "$2" "$3"
+	start "$@"
 	;;
 status) check_status ;;
-config) generate_config "$2" ;;
 update) update_rules "f" ;;
 *) help ;;
 esac

@@ -13,4 +13,4 @@ ExecStop=/usr/bin/archwrt-ss.sh stop
 ExecReload=/usr/bin/archwrt-ss.sh restart
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
