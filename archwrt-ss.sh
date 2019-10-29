@@ -188,9 +188,9 @@ config_ipset() {
 
 	# add speciallist
 	truncate -s 0 /etc/dnsmasq.d/30-special_list.conf
-	if [ -n "${special_dns_port}" ]; then
+	if [ -n "${special_dns_port}" ] && [ -n "${special_dns}" ]; then
 		sed -E '/^$|^[#;]/d' "${speciallist}" | while read -r line; do
-			echo "server=/.${line}/127.0.0.1#${special_dns_port}" >>/etc/dnsmasq.d/30-special_list.conf
+			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>/etc/dnsmasq.d/30-special_list.conf
 		done
 	fi
 
