@@ -187,20 +187,33 @@ config_ipset() {
 	# not gfwlist over cdn
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# Setup China DNS
-		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
-			no-resolv
-			no-poll
+		cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
 			expand-hosts
-			server=${china_dns}#${china_dns_port}
 		EOF
+		
+		if [ -n "$resolv_file" ]; then
+			echo "resolv-file=${resolv_file}" >> /etc/dnsmasq.d/10-dns.conf
+		else
+			echo "no-resolv" >> /etc/dnsmasq.d/10-dns.conf
+		fi
+		
+		if [ -n "${china_dns}" ] && [ -n "${china_dns_port}" ]; then
+			echo "server=${china_dns}#${china_dns_port}" >> /etc/dnsmasq.d/10-dns.conf
+		fi
+
 	else
 		# set default DNS over DoT
-		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
-			no-resolv
-			no-poll
+		cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
 			expand-hosts
 			server=127.0.0.1#${puredns_port}
 		EOF
+
+		if [ -n "$resolv_file" ]; then
+			echo "resolv-file=${resolv_file}" >> /etc/dnsmasq.d/10-dns.conf
+		else
+			echo "no-resolv" >> /etc/dnsmasq.d/10-dns.conf
+		fi
+		
 		# set cdn over China DNS
 		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
 			sort | awk '{if ($0!=line) print;line=$0}' >/etc/dnsmasq.d/20-sscdn_ipset.conf
