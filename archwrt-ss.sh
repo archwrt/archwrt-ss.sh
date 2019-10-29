@@ -38,6 +38,7 @@ help() {
 prepare() {
 
 	[ ! -d "${ss_dir}" ] && mkdir -p "${ss_dir}"
+	[ ! -f "${speciallist}" ] && touch "${speciallist}"
 	[ ! -f "${whitelist}" ] && touch "${whitelist}"
 	[ ! -f "${blacklist}" ] && touch "${blacklist}"
 	[ ! -d /etc/dnsmasq.d ] && mkdir -p /etc/dnsmasq.d
@@ -166,7 +167,7 @@ config_ipset() {
 		ipset -! add white_list "${ip}" &>/dev/null
 	done
 	# add custom black list
-	cat /dev/null >/etc/dnsmasq.d/20-wblist_ipset.conf
+	truncate -s 0 /etc/dnsmasq.d/20-wblist_ipset.conf
 	sed -E '/^$|^[#;]/d' "${blacklist}" | while read -r line; do
 		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
 			echo "server=/.${line}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
@@ -184,36 +185,32 @@ config_ipset() {
 			ipset -! add white_list "${line}" &>/dev/null
 		fi
 	done
+
+	# add speciallist
+	truncate -s 0 /etc/dnsmasq.d/30-special_list.conf
+	if [ -n "${special_dns_port}" ]; then
+		sed -E '/^$|^[#;]/d' "${speciallist}" | while read -r line; do
+			echo "server=/.${line}/127.0.0.1#${special_dns_port}" >>/etc/dnsmasq.d/30-special_list.conf
+		done
+	fi
+
 	# not gfwlist over cdn
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# Setup China DNS
-		cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
+		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
+			no-resolv
 			expand-hosts
+			server=${china_dns}#${china_dns_port}
 		EOF
-		
-		if [ -n "$resolv_file" ]; then
-			echo "resolv-file=${resolv_file}" >> /etc/dnsmasq.d/10-dns.conf
-		else
-			echo "no-resolv" >> /etc/dnsmasq.d/10-dns.conf
-		fi
-		
-		if [ -n "${china_dns}" ] && [ -n "${china_dns_port}" ]; then
-			echo "server=${china_dns}#${china_dns_port}" >> /etc/dnsmasq.d/10-dns.conf
-		fi
 
 	else
 		# set default DNS over DoT
-		cat > /etc/dnsmasq.d/10-dns.conf <<-EOF
+		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
+			no-resolv
 			expand-hosts
 			server=127.0.0.1#${puredns_port}
 		EOF
 
-		if [ -n "$resolv_file" ]; then
-			echo "resolv-file=${resolv_file}" >> /etc/dnsmasq.d/10-dns.conf
-		else
-			echo "no-resolv" >> /etc/dnsmasq.d/10-dns.conf
-		fi
-		
 		# set cdn over China DNS
 		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
 			sort | awk '{if ($0!=line) print;line=$0}' >/etc/dnsmasq.d/20-sscdn_ipset.conf
@@ -319,6 +316,7 @@ flush_nat() {
 	rm -rf /etc/dnsmasq.d/20-gfwlist_ipset.conf
 	rm -rf /etc/dnsmasq.d/20-sscdn_ipset.conf
 	rm -rf /etc/dnsmasq.d/20-wblist_ipset.conf
+	rm -rf /etc/dnsmasq.d/30-special_list.conf
 }
 
 restart_dnsmasq() {
@@ -326,6 +324,12 @@ restart_dnsmasq() {
 	echo "Restarting dnsmasq..."
 	systemctl restart dnsmasq
 	sleep 1
+}
+
+stop_dnsmasq() {
+	# Restart dnsmasq
+	echo "Stopping dnsmasq..."
+	systemctl stop dnsmasq
 }
 
 mount_resolv() {
@@ -349,6 +353,9 @@ umount_resolv() {
 		echo "Releasing /etc/resolv.conf..."
 		umount /etc/resolv.conf &>/dev/null
 	fi
+	if [ -f "/run/NetworkManager/resolv.conf" ]; then
+		cat "/run/NetworkManager/resolv.conf" > "/etc/resolv.conf"
+	fi
 }
 
 check_status() {
@@ -367,7 +374,11 @@ stop() {
 	env_check
 	stop_service
 	flush_nat
-	restart_dnsmasq
+	if [ -n "${lan_ip}" ]; then
+		restart_dnsmasq
+	else
+		stop_dnsmasq
+	fi
 	umount_resolv
 }
 
@@ -386,7 +397,10 @@ start() {
 }
 
 case "$1" in
-start) shift; start "$@";;
+start)
+	shift
+	start "$@"
+	;;
 stop) stop ;;
 restart)
 	shift
