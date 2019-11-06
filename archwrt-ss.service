@@ -1,7 +1,7 @@
 [Unit]
 Description=archwrt-ss.sh transparent proxy script
 ConditionFileIsExecutable=/usr/bin/archwrt-ss.sh
-ConditionFileNotEmpty=/etc/archwrt-ss/archwrt-ss.conf
+ConditionFileNotEmpty=/etc/archwrt/ss/archwrt-ss.conf
 After=network.target
 
 [Service]

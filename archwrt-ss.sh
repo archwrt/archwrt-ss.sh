@@ -2,7 +2,7 @@
 #contibuted by monlor & edward-p
 
 ss_config_dir="/etc/shadowsocks"
-ss_dir="/etc/archwrt-ss"
+ss_dir="/etc/archwrt/ss"
 _conf="${ss_dir}/archwrt-ss.conf"
 
 if [ ! -f "${_conf}" ]; then
