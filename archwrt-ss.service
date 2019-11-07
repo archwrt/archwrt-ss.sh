@@ -1,8 +1,7 @@
 [Unit]
 Description=archwrt-ss.sh transparent proxy script
-ConditionFileIsExecutable=/usr/bin/archwrt-ss.sh
 ConditionFileNotEmpty=/etc/archwrt/ss/archwrt-ss.conf
-After=network.target
+Before=network-pre.target
 
 [Service]
 Type=oneshot
@@ -12,4 +11,4 @@ ExecStop=/usr/bin/archwrt-ss.sh stop
 ExecReload=/usr/bin/archwrt-ss.sh restart
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

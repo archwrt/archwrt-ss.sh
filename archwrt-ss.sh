@@ -27,8 +27,8 @@ help() {
 		Example:
 		  ${0##/*/} start bypass          Start with bypass mode
 		  ${0##/*/} restart gfwlist       Restart with gfwlist mode
-		  ${0##/*/} restart bypass sfo2   Retart with bypass mode using ${ss_dir}/sfo2.json
-		  ${0##/*/} restart sfo2          Retart using /etc/shadowsocks/sfo2.json
+		  ${0##/*/} restart bypass sfo2   Retart with bypass mode using ${ss_config_dir}/sfo2.json
+		  ${0##/*/} restart sfo2          Retart using ${ss_config_dir}/sfo2.json
 		  ${0##/*/} start                 Start with default mode [current:${ss_mode}]
 		  ${0##/*/} update                Update rules
 	EOF
@@ -86,7 +86,7 @@ start_ss_redir() {
 
 	echo "Starting ss-redir..."
 	# Start ss-redir
-	systemctl start shadowsocks-libev-redir@"${ss_config}".service
+    (systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
 
 }
 
@@ -267,7 +267,7 @@ create_nat_rules() {
 stop_service() {
 	echo "Stopping process..."
 
-	systemctl stop shadowsocks-libev-redir@"${ss_config}"
+    systemctl stop shadowsocks-libev-redir@"${ss_config}"
 }
 
 flush_nat() {
@@ -322,14 +322,13 @@ flush_nat() {
 restart_dnsmasq() {
 	# Restart dnsmasq
 	echo "Restarting dnsmasq..."
-	systemctl restart dnsmasq
-	sleep 1
+    systemctl restart dnsmasq
 }
 
 stop_dnsmasq() {
 	# Restart dnsmasq
 	echo "Stopping dnsmasq..."
-	systemctl stop dnsmasq
+    systemctl stop dnsmasq
 }
 
 mount_resolv() {
@@ -393,7 +392,6 @@ start() {
 	create_nat_rules
 	restart_dnsmasq
 	mount_resolv
-	check_status
 }
 
 case "$1" in
