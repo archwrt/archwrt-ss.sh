@@ -373,7 +373,7 @@ stop() {
 	env_check
 	stop_service
 	flush_nat
-	if [ -n "${lan_ip}" ]; then
+	if [ -n "${lanip}" ]; then
 		restart_dnsmasq
 	else
 		stop_dnsmasq
