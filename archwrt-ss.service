@@ -4,7 +4,7 @@ ConditionFileNotEmpty=/etc/archwrt/ss/archwrt-ss.conf
 Before=network-pre.target
 
 [Service]
-Type=oneshot
+Type=simple
 RemainAfterExit=yes
 ExecStart=/usr/bin/archwrt-ss.sh start
 ExecStop=/usr/bin/archwrt-ss.sh stop
