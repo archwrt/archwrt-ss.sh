@@ -211,8 +211,8 @@ config_ipset() {
 			server=127.0.0.1#${puredns_port}
 		EOF
 
-		# set cdn over China DNS
-		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${china_dns}#${china_dns_port}/g" |
+		# set cdn domains over CDN DNS
+		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
 			sort | awk '{if ($0!=line) print;line=$0}' >/etc/dnsmasq.d/20-sscdn_ipset.conf
 	fi
 
