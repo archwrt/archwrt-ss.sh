@@ -38,7 +38,7 @@ Config File:
 Example:
   archwrt-ss.sh start bypass          Start with bypass mode
   archwrt-ss.sh restart gfwlist       Restart with gfwlist mode
-  archwrt-ss.sh restart bypass sfo2   Retart with bypass mode using /etc/archwrt-ss/sfo2.json
+  archwrt-ss.sh restart bypass sfo2   Retart with bypass mode using /etc/shadowsocks/sfo2.json
   archwrt-ss.sh restart sfo2          Retart using /etc/shadowsocks/sfo2.json
   archwrt-ss.sh start                 Start with default mode [current:bypass]
   archwrt-ss.sh update                Update rules
@@ -59,7 +59,7 @@ Install manually
 $ git clone https://github.com/archwrt/archwrt-ss.sh
 $ cd archwrt-ss.sh
 $ sudo install -Dm755 archwrt-ss.sh /usr/bin/archwrt-ss.sh
-$ sudo install -Dm644 archwrt-ss.conf /etc/archwrt-ss/archwrt-ss.conf
+$ sudo install -Dm644 archwrt-ss.conf /etc/archwrt/ss/archwrt-ss.conf
 $ sudo install -Dm644 archwrt-ss.service /usr/lib/systemd/system/archwrt-ss.service
 $ sudo systemctl daemon-reload
 ```
@@ -68,7 +68,7 @@ $ sudo systemctl daemon-reload
 
 The script use `systemctl start shadowsocks-libev-redir@${ss_conf}` to start ss-redir.
 
-You need set up your config name (without extension `.json`) to `ss_conf` in `/etc/archwrt-ss/archwrt-ss.conf`
+You need set up your config name (without extension `.json`) to `ss_conf` in `/etc/archwrt/ss/archwrt-ss.conf`
 
 You need write your `${ss_conf}.json` in `/etc/shadowsocks`
 
@@ -78,7 +78,7 @@ Check if there's any error, for example:
 $ ss-redir -c /etc/shadowsocks/config.json
 ```
 
-Not yet, you need set `puredns_port` in `/etc/archwrt-ss/archwrt-ss.conf` as the upstream of the dnsmasq.
+Not yet, you need set `puredns_port` in `/etc/archwrt/ss/archwrt-ss.conf` as the upstream of the dnsmasq.
 
 Now you can start by:
 
@@ -94,8 +94,8 @@ systemctl enable archwrt-ss.service
 
 ## Customized Blacklist/Whitelist
 
-- blacklist: by default, located at `/etc/archwrt-ss/blacklist.txt` 
-- whitelist: by default, located at `/etc/archwrt-ss/whitelist.txt` 
+- blacklist: by default, located at `/etc/archwrt/ss/blacklist.txt` 
+- whitelist: by default, located at `/etc/archwrt/ss/whitelist.txt` 
 
 comment with `#` is supported
 
