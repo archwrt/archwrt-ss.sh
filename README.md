@@ -15,6 +15,7 @@ A simple Shadowsocks transparent proxy setup script.
 * shadowsocks-libev
 * simple-obfs (optional)
 * shadowsocks-v2ray-plugin (optional)
+* bind-tools (The script is using dig for ip resolving)
 * dnsmasq
 * ipset
 * iptables

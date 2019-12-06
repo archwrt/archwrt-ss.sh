@@ -67,7 +67,12 @@ prepare() {
 		esac
 	done
 
-	ss_server_ip=$(grep "server" "${ss_config_dir}/${ss_config}.json" | grep -oE "([0-9]{1,3}[\.]){3}[0-9]{1,3}")
+	ss_server="$(grep \"server\" "${ss_config_dir}/${ss_config}.json" | sed -E 's/"|,|:/ /g' | awk '{print $ 2}')"
+	if [[ "$ss_server" =~ ([0-9]+.)+[0-9]+ ]]; then
+		ss_server_ip="$ss_server"
+	else
+		ss_server_ip="$(dig +short A "$ss_server" | head -1)"
+	fi
 	local_port=$(grep "local_port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+")
 }
 
@@ -75,6 +80,7 @@ env_check() {
 
 	echo "Checking environment..."
 	[ "$(whoami)" != "root" ] && echo "Please run as root!" && exit 1
+	! hash dig &>/dev/null && echo "Please install bind-tools for 'dig'!" && exit 1
 	! hash ss-redir &>/dev/null && echo "Please install shadowsocks-libev!" && exit 1
 	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
 	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
