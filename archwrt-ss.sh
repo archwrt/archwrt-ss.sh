@@ -71,7 +71,7 @@ prepare() {
 	if [[ "$ss_server" =~ ([0-9]+.)+[0-9]+ ]]; then
 		ss_server_ip="$ss_server"
 	else
-		ss_server_ip="$(dig +short A "$ss_server" | head -1)"
+		ss_server_ip="$(ping -4 -q -c 1 -s 0 -W 1 -w 1 "$ss_server" | head -n 1 | sed -n 's/[^(]*(\([^)]*\)).*/\1/p')"
 	fi
 	local_port=$(grep "local_port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+")
 }
@@ -80,7 +80,6 @@ env_check() {
 
 	echo "Checking environment..."
 	[ "$(whoami)" != "root" ] && echo "Please run as root!" && exit 1
-	! hash dig &>/dev/null && echo "Please install bind-tools for 'dig'!" && exit 1
 	! hash ss-redir &>/dev/null && echo "Please install shadowsocks-libev!" && exit 1
 	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
 	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
