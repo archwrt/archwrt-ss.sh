@@ -327,13 +327,23 @@ flush_nat() {
 restart_dnsmasq() {
 	# Restart dnsmasq
 	echo "Restarting dnsmasq..."
-    systemctl restart dnsmasq
+	systemctl restart dnsmasq
 }
 
 stop_dnsmasq() {
 	# Restart dnsmasq
 	echo "Stopping dnsmasq..."
-    systemctl stop dnsmasq
+	systemctl stop dnsmasq
+}
+
+start_puredns() {
+	echo "Starting ${puredns_service_name}..."
+	systemctl start "${puredns_service_name}"
+}
+
+stop_puredns() {
+	echo "Stopping ${puredns_service_name}..."
+	systemctl stop "${puredns_service_name}"
 }
 
 mount_resolv() {
@@ -378,10 +388,13 @@ stop() {
 	env_check
 	stop_service
 	flush_nat
-	if [ -n "${lanip}" ]; then
-		restart_dnsmasq
-	else
+	if [ "${stop_dnsmasq_on_stop}" = "true"  ]; then
 		stop_dnsmasq
+	else
+		restart_dnsmasq
+	fi
+	if [ "${puredns_managed}" = "true" ]; then
+		stop_puredns
 	fi
 	umount_resolv
 }
@@ -395,6 +408,9 @@ start() {
 	update_rules
 	config_ipset
 	create_nat_rules
+	if [ "${puredns_managed}" = "true" ]; then
+		start_puredns
+	fi
 	restart_dnsmasq
 	mount_resolv
 }
