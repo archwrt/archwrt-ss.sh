@@ -91,8 +91,7 @@ start_ss_redir() {
 
 	echo "Starting ss-redir..."
 	# Start ss-redir
-    (systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
-
+	(systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
 }
 
 update_rules() {
@@ -272,7 +271,7 @@ create_nat_rules() {
 stop_service() {
 	echo "Stopping process..."
 
-    systemctl stop shadowsocks-libev-redir@"${ss_config}"
+	systemctl stop shadowsocks-libev-redir@"${ss_config}"
 }
 
 flush_nat() {
@@ -397,22 +396,42 @@ stop() {
 		stop_puredns
 	fi
 	umount_resolv
+	rm /var/run/archwrt-ss.sh.running &> /dev/null
 }
 
 start() {
 	env_check
-
 	prepare "$@"
 	echo "Proxy Mode: [${ss_mode}]"
-	start_ss_redir
 	update_rules
 	config_ipset
 	create_nat_rules
+	start_ss_redir
 	if [ "${puredns_managed}" = "true" ]; then
 		start_puredns
 	fi
 	restart_dnsmasq
 	mount_resolv
+	touch /var/run/archwrt-ss.sh.running
+}
+
+quick_restart_available(){
+	if [[ -f "/var/run/archwrt-ss.sh.running" ]] && \
+		[[ ! "$@" =~ "(gfwlist)|(bypass)|(gamemode)|(global)" ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+quick_restart() {
+	env_check
+	stop_service
+	prepare "$@"
+	ipset -! add white_list "${ss_server_ip}" &>/dev/null
+	start_ss_redir
+	echo "Proxy Mode: [${ss_mode}] (not changed)"
+	echo "Switched to ${ss_config}"
 }
 
 case "$1" in
@@ -423,8 +442,15 @@ start)
 stop) stop ;;
 restart)
 	shift
-	stop
-	start "$@"
+	if quick_restart_available "$@"; then
+		echo "Proxy mode is not changed, restarting quickly..."
+		quick_restart "$@"
+	else
+		echo "Proxy mode is changed or archwrt-ss.sh is not running,"
+		echo "Restarting normally..."
+		stop
+		start "$@"
+	fi
 	;;
 status) check_status ;;
 update) update_rules "f" ;;
