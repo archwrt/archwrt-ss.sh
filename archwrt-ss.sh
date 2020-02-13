@@ -403,10 +403,10 @@ start() {
 	env_check
 	prepare "$@"
 	echo "Proxy Mode: [${ss_mode}]"
-	update_rules
+	start_ss_redir
+    update_rules
 	config_ipset
 	create_nat_rules
-	start_ss_redir
 	if [ "${puredns_managed}" = "true" ]; then
 		start_puredns
 	fi
@@ -417,7 +417,7 @@ start() {
 
 quick_restart_available(){
 	if [[ -f "/var/run/archwrt-ss.sh.running" ]] && \
-		[[ ! "$@" =~ "(gfwlist)|(bypass)|(gamemode)|(global)" ]]; then
+        [[ ! "$@" =~ (gfwlist)|(bypass)|(gamemode)|(global)|(^$) ]]; then
 		return 0
 	else
 		return 1
@@ -449,6 +449,7 @@ restart)
 		echo "Proxy mode is changed or archwrt-ss.sh is not running,"
 		echo "Restarting normally..."
 		stop
+        sleep 1
 		start "$@"
 	fi
 	;;
