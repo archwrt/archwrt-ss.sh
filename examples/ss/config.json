@@ -1,0 +1,13 @@
+{
+  "server": "example.com",
+  "server_port": 8080,
+  "local_address": "0.0.0.0",
+  "local_port": 1080,
+  "password": "password",
+  "timeout": 300,
+  "method": "aes-256-gcm",
+  "mode": "tcp_only",
+  "fast_open": true,
+  "plugin": "obfs-local",
+  "plugin_opts": "obfs=tls;obfs-host=cloudfront.net;fast-open"
+}

@@ -1,7 +1,6 @@
 #!/bin/bash
 #contibuted by monlor & edward-p
 
-ss_config_dir="/etc/shadowsocks"
 ss_dir="/etc/archwrt/ss"
 _conf="${ss_dir}/archwrt-ss.conf"
 
@@ -12,6 +11,12 @@ fi
 
 source "${_conf}"
 
+if [ "${working_mode}" = "ss" ]; then
+	ss_config_dir="/etc/shadowsocks"
+elif [ "${working_mode}" = "v2ray" ]; then
+	ss_config_dir="/etc/v2ray"
+fi
+
 help() {
 	cat <<-EOF
 		Info:
@@ -20,7 +25,7 @@ help() {
 		  ${0##/*/} {Command} {Option} {Config File}
 		Commands:
 		  start | stop | restart | status | update
-		Options:
+	Options:
 		  gfwlist | bypass | gamemode | global
 		Config File:
 		  Specify which config.json to use. by default the script will use the last one used.
@@ -56,7 +61,7 @@ prepare() {
 		#"") shift ;;
 		*)
 			if [ ! -f "${ss_config_dir}/$1.json" ]; then
-				echo "No shadowsocks config file found: ${ss_config_dir}/$1.json !" 1>&2 && exit 1
+				echo "No shadowsocks/v2ray config file found: ${ss_config_dir}/$1.json !" 1>&2 && exit 1
 			fi
 			if [ "${ss_config}" != "$1" ]; then
 				ss_config="$1"
@@ -67,20 +72,29 @@ prepare() {
 		esac
 	done
 
-	ss_server="$(grep \"server\" "${ss_config_dir}/${ss_config}.json" | sed -E 's/"|,|:/ /g' | awk '{print $ 2}')"
-	if [[ "$ss_server" =~ ([0-9]+.)+[0-9]+ ]]; then
+	if [ "${working_mode}" = "v2ray" ]; then
+		ss_server="$(grep \"address\" "${ss_config_dir}/${ss_config}.json" | sed -E 's/"|,|:/ /g' | awk '{print $ 2}')"
+	elif [ "${working_mode}" = "ss" ]; then
+		ss_server="$(grep \"server\" "${ss_config_dir}/${ss_config}.json" | sed -E 's/"|,|:/ /g' | awk '{print $ 2}')"
+	fi
+	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
 		ss_server_ip="$ss_server"
 	else
 		ss_server_ip="$(ping -4 -q -c 1 -s 0 -W 1 -w 1 "$ss_server" | head -n 1 | sed -n 's/[^(]*(\([^)]*\)).*/\1/p')"
 	fi
-	local_port=$(grep "local_port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+")
+
+	if [ "${working_mode}" = "v2ray" ]; then
+		local_port=$(grep "port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+" | head -1)
+	elif [ "${working_mode}" = "ss" ]; then
+		local_port=$(grep "local_port" "${ss_config_dir}/${ss_config}.json" | grep -oE "[0-9]+")
+	fi
 }
 
 env_check() {
 
 	echo "Checking environment..."
 	[ "$(whoami)" != "root" ] && echo "Please run as root!" && exit 1
-	! hash ss-redir &>/dev/null && echo "Please install shadowsocks-libev!" && exit 1
+	! hash ss-redir &>/dev/null && ! hash v2ray &>/dev/null && echo "Please install shadowsocks-libev or v2ray!" && exit 1
 	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
 	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
 	! hash iptables &>/dev/null && echo "Please install iptables！" && exit 1
@@ -90,8 +104,12 @@ env_check() {
 start_ss_redir() {
 
 	echo "Starting ss-redir..."
-	# Start ss-redir
-	(systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
+	# Start redir
+	if [ "${working_mode}" = "ss" ]; then
+		(systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
+	elif [ "${working_mode}" = "v2ray" ]; then
+		(systemctl start v2ray@"${ss_config}".service &) || true
+	fi
 }
 
 update_rules() {
@@ -180,6 +198,13 @@ config_ipset() {
 			ipset -! add black_list "${line}" &>/dev/null
 		fi
 	done
+
+	#add server domain to white list
+	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
+		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+	fi
+
 	# add custom white list
 	sed -E '/^$|^[#;]/d' "${whitelist}" | while read -r line; do
 		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
@@ -271,7 +296,11 @@ create_nat_rules() {
 stop_service() {
 	echo "Stopping process..."
 
-	systemctl stop shadowsocks-libev-redir@"${ss_config}"
+	if [ "${working_mode}" = "ss" ]; then
+		systemctl stop shadowsocks-libev-redir@"${ss_config}"
+	elif [ "${working_mode}" = "v2ray" ]; then
+		systemctl stop v2ray@"${ss_config}"
+	fi
 }
 
 flush_nat() {
@@ -373,10 +402,15 @@ umount_resolv() {
 
 check_status() {
 	echo '----------- status --------------'
-	systemctl status --no-pager shadowsocks-libev-redir@"${ss_config}"
+	if [ "${working_mode}" = "ss" ]; then
+		systemctl status --no-pager shadowsocks-libev-redir@"${ss_config}"
+	elif [ "${working_mode}" = "v2ray" ]; then
+		systemctl status --no-pager v2ray@"${ss_config}"
+	fi
 	echo '---------------------------------'
 	systemctl status --no-pager "${puredns_service_name}"
 	echo '---------------------------------'
+	echo "working_mode: ${working_mode}"
 	iptables -t nat -S | grep -q SHADOWSOCKS && echo "NAT rules added with [${ss_mode}]." || echo "No NAT rules added."
 	iptables -t mangle -S | grep -q SHADOWSOCKS && echo "UDP rules added." || echo "No UDP rules added."
 	mount | grep -q '/etc/resolv.conf' && echo "/etc/resolv.conf mounted with --bind" || echo "/etc/resolv.conf not changed."
@@ -401,10 +435,11 @@ stop() {
 
 start() {
 	env_check
+    echo "Working Mode: [${working_mode}]"
 	prepare "$@"
 	echo "Proxy Mode: [${ss_mode}]"
 	start_ss_redir
-    update_rules
+	update_rules
 	config_ipset
 	create_nat_rules
 	if [ "${puredns_managed}" = "true" ]; then
@@ -417,7 +452,7 @@ start() {
 
 quick_restart_available(){
 	if [[ -f "/var/run/archwrt-ss.sh.running" ]] && \
-        [[ ! "$@" =~ (gfwlist)|(bypass)|(gamemode)|(global)|(^$) ]]; then
+		[[ ! "$@" =~ (gfwlist)|(bypass)|(gamemode)|(global)|(^$) ]]; then
 		return 0
 	else
 		return 1
@@ -429,6 +464,11 @@ quick_restart() {
 	stop_service
 	prepare "$@"
 	ipset -! add white_list "${ss_server_ip}" &>/dev/null
+	#add server domain to white list
+	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
+		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+	fi
 	start_ss_redir
 	echo "Proxy Mode: [${ss_mode}] (not changed)"
 	echo "Switched to ${ss_config}"
@@ -449,7 +489,7 @@ restart)
 		echo "Proxy mode is changed or archwrt-ss.sh is not running,"
 		echo "Restarting normally..."
 		stop
-        sleep 1
+		sleep 1
 		start "$@"
 	fi
 	;;
