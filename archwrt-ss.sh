@@ -464,10 +464,12 @@ quick_restart() {
 	stop_service
 	prepare "$@"
 	ipset -! add white_list "${ss_server_ip}" &>/dev/null
-	#add server domain to white list
+	#add server domain to white list if not exist.
 	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
-		echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		if ! grep "${ss_server}" /etc/dnsmasq.d/20-wblist_ipset.conf; then
+			echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		fi
 	fi
 	start_ss_redir
 	echo "Proxy Mode: [${ss_mode}] (not changed)"
