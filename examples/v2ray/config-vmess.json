@@ -8,13 +8,6 @@
         "network": "tcp,udp",
         "followRedirect": true
       },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
-      },
       "streamSettings": {
         "sockopt": {
           "tproxy": "redirect"
@@ -38,11 +31,6 @@
             ]
           }
         ]
-      },
-      "streamSettings": {
-        "sockopt": {
-          "mark": 255
-        }
       }
     }
   ]
