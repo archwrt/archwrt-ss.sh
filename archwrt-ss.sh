@@ -263,18 +263,19 @@ create_nat_rules() {
 	elif [ "${ss_mode}" = "gamemode" ]; then
 		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
 		iptables -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
-		# iptables -t nat -A SHADOWSOCKS -p udp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
-		ip rule add fwmark 0x07 table 310 pref 789
-		ip route add local 0.0.0.0/0 dev lo table 310
+
+        #UDP Rules
+        ip rule add fwmark 0x07 table 310 pref 789
+		ip route add local default dev lo table 310
 		iptables -t mangle -N SHADOWSOCKS
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set white_list dst -j RETURN
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set black_list dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set ! --match-set bypass dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
 
-		iptables -t mangle -N SS_OUTPUT
-		iptables -t mangle -A SS_OUTPUT -p udp -j RETURN -m set --match-set white_list dst
-		iptables -t mangle -A SS_OUTPUT -p udp -m set --match-set black_list dst -j MARK --set-mark 0x07
-		iptables -t mangle -A SS_OUTPUT -p udp -m set ! --match-set bypass dst -j MARK --set-mark 0x07
+		iptables -t mangle -N SS_MARK
+		iptables -t mangle -A SS_MARK -p udp -j RETURN -m set --match-set white_list dst
+		iptables -t mangle -A SS_MARK -p udp -m set --match-set black_list dst -j MARK --set-mark 0x07
+		iptables -t mangle -A SS_MARK -p udp -m set ! --match-set bypass dst -j MARK --set-mark 0x07
 
 	else
 		echo "Wrong proxy mode!" && exit 1
@@ -286,10 +287,10 @@ create_nat_rules() {
 	[ -n "${lanip}" ] && iptables -t nat -I PREROUTING -s ${lanip}/24 -p udp --dport 53 -m comment --comment "dns_redir" -j DNAT --to ${lanip}
 	# forward
 	iptables -t nat -I PREROUTING 1 -p tcp -j SHADOWSOCKS
-	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I PREROUTING 1 -p udp -j SHADOWSOCKS
+	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I PREROUTING 1 -j SHADOWSOCKS
 	# for router self
 	iptables -t nat -I OUTPUT 1 -p tcp -j SHADOWSOCKS
-	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I OUTPUT 1 -p udp -j SS_OUTPUT
+	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I OUTPUT 1 -j SS_MARK
 
 }
 
@@ -309,12 +310,12 @@ flush_nat() {
 	# flush shadowsocks rules
 	eval "$(iptables -t nat -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t nat -D/")"
 	iptables -t nat -D PREROUTING -p tcp -j SHADOWSOCKS &>/dev/null
-	iptables -t mangle -D OUTPUT -p udp -j SS_OUTPUT &>/dev/null
+	iptables -t mangle -D OUTPUT -j SS_MARK &>/dev/null
 	iptables -t nat -F SHADOWSOCKS >/dev/null 2>&1 && iptables -t nat -X SHADOWSOCKS >/dev/null 2>&1
 	eval "$(iptables -t mangle -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t mangle -D/")"
-	iptables -t mangle -D PREROUTING -p udp -j SHADOWSOCKS &>/dev/null
+	iptables -t mangle -D PREROUTING -j SHADOWSOCKS &>/dev/null
 	iptables -t mangle -F SHADOWSOCKS &>/dev/null && iptables -t mangle -X SHADOWSOCKS &>/dev/null
-	iptables -t mangle -F SS_OUTPUT &>/dev/null && iptables -t mangle -X SS_OUTPUT &>/dev/null
+	iptables -t mangle -F SS_MARK &>/dev/null && iptables -t mangle -X SS_MARK &>/dev/null
 	iptables -t nat -D OUTPUT -p tcp -j SHADOWSOCKS &>/dev/null
 	# flush dns_redir rule
 	eval "$(iptables -t nat -S | grep "dns_redir" | head -1 | sed -e "s/-A/iptables -t nat -D/")" &>/dev/null
