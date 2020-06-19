@@ -15,7 +15,20 @@ if [ "${working_mode}" = "ss" ]; then
 	ss_config_dir="/etc/shadowsocks"
 elif [ "${working_mode}" = "v2ray" ]; then
 	ss_config_dir="/etc/v2ray"
+else
+	echo "ss_config_dir not configured in $_conf"
+	exit 1
 fi
+
+if [ "${dnsmasq_mode}" = "systemd" ]; then
+	dnsmasq_config_dir="/etc/dnsmasq.d"
+elif [ "${dnsmasq_mode}" = "nm" ]; then
+	dnsmasq_config_dir="/etc/NetworkManager/dnsmasq.d"
+else
+	echo "dnsmasq_mode not configured in $_conf"
+	exit 1
+fi
+
 
 help() {
 	cat <<-EOF
@@ -46,9 +59,11 @@ prepare() {
 	[ ! -f "${speciallist}" ] && touch "${speciallist}"
 	[ ! -f "${whitelist}" ] && touch "${whitelist}"
 	[ ! -f "${blacklist}" ] && touch "${blacklist}"
-	[ ! -d /etc/dnsmasq.d ] && mkdir -p /etc/dnsmasq.d
-	! grep -q "^conf-dir" /etc/dnsmasq.conf &&
-		echo "conf-dir=/etc/dnsmasq.d/,*.conf" >>/etc/dnsmasq.conf
+	[ ! -d "${dnsmasq_config_dir}" ] && mkdir -p "${dnsmasq_config_dir}"
+	if [ "${dnsmasq_mode}" = "systemd" ]; then
+		! grep -q "^conf-dir" /etc/dnsmasq.conf &&
+			echo "conf-dir=/etc/dnsmasq.d/,*.conf" >>/etc/dnsmasq.conf
+	fi
 	[ "$(cat /proc/sys/net/ipv4/ip_forward)" != '1' ] && echo 1 >/proc/sys/net/ipv4/ip_forward
 
 	while [ $# -gt 0 ]; do
@@ -148,8 +163,8 @@ config_ipset() {
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# gfwlist dnsmasq
 		ipset -! create gfwlist nethash && ipset flush gfwlist
-		cat "${gfwlist}" >/etc/dnsmasq.d/20-gfwlist_ipset.conf
-		sed -i "s/7913/${puredns_port}/g" /etc/dnsmasq.d/20-gfwlist_ipset.conf
+		cat "${gfwlist}" >"${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
+		sed -i "s/7913/${puredns_port}/g" "${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
 	elif [ "${ss_mode}" = "bypass" ] || [ "${ss_mode}" = "gamemode" ]; then
 		# bypass ipset
 		ipset -! create bypass nethash && ipset flush bypass
@@ -189,11 +204,11 @@ config_ipset() {
 		ipset -! add white_list "${ip}" &>/dev/null
 	done
 	# add custom black list
-	truncate -s 0 /etc/dnsmasq.d/20-wblist_ipset.conf
+	truncate -s 0 "${dnsmasq_config_dir}"/20-wblist_ipset.conf
 	sed -E '/^$|^[#;]/d' "${blacklist}" | while read -r line; do
 		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
-			echo "server=/.${line}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
-			echo "ipset=/.${line}/black_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "server=/.${line}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+			echo "ipset=/.${line}/black_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 		else
 			ipset -! add black_list "${line}" &>/dev/null
 		fi
@@ -201,32 +216,32 @@ config_ipset() {
 
 	#add server domain to white list
 	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
-		echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+		echo "ipset=/.${ss_server}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 	fi
 
 	# add custom white list
 	sed -E '/^$|^[#;]/d' "${whitelist}" | while read -r line; do
 		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
-			echo "server=/.${line}/${china_dns}#${china_dns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
-			echo "ipset=/.${line}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+			echo "server=/.${line}/${china_dns}#${china_dns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+			echo "ipset=/.${line}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 		else
 			ipset -! add white_list "${line}" &>/dev/null
 		fi
 	done
 
 	# add speciallist
-	truncate -s 0 /etc/dnsmasq.d/30-special_list.conf
+	truncate -s 0 "${dnsmasq_config_dir}"/30-special_list.conf
 	if [ -n "${special_dns_port}" ] && [ -n "${special_dns}" ]; then
 		sed -E '/^$|^[#;]/d' "${speciallist}" | while read -r line; do
-			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>/etc/dnsmasq.d/30-special_list.conf
+			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>"${dnsmasq_config_dir}"/30-special_list.conf
 		done
 	fi
 
 	# not gfwlist over cdn
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# Setup China DNS
-		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
+		cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
 			no-resolv
 			expand-hosts
 			server=${china_dns}#${china_dns_port}
@@ -234,7 +249,7 @@ config_ipset() {
 
 	else
 		# set default DNS over DoT
-		cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
+		cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
 			no-resolv
 			expand-hosts
 			server=127.0.0.1#${puredns_port}
@@ -242,7 +257,7 @@ config_ipset() {
 
 		# set cdn domains over CDN DNS
 		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
-			sort | awk '{if ($0!=line) print;line=$0}' >/etc/dnsmasq.d/20-sscdn_ipset.conf
+			sort | awk '{if ($0!=line) print;line=$0}' >"${dnsmasq_config_dir}"/20-sscdn_ipset.conf
 	fi
 
 }
@@ -264,8 +279,8 @@ create_nat_rules() {
 		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
 		iptables -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
 
-        #UDP Rules
-        ip rule add fwmark 0x07 table 310 pref 789
+		#UDP Rules
+		ip rule add fwmark 0x07 table 310 pref 789
 		ip route add local default dev lo table 310
 		iptables -t mangle -N SHADOWSOCKS
 		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set white_list dst -j RETURN
@@ -345,29 +360,37 @@ flush_nat() {
 	ip route del local 0.0.0.0/0 dev lo table 310 &>/dev/null
 
 	# restore DNS to China DNS
-	cat >/etc/dnsmasq.d/10-dns.conf <<-EOF
+	cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
 		no-resolv
 		no-poll
 		expand-hosts
 		server=${china_dns}#${china_dns_port}
 	EOF
 	# remove dnsmasq config
-	rm -rf /etc/dnsmasq.d/20-gfwlist_ipset.conf
-	rm -rf /etc/dnsmasq.d/20-sscdn_ipset.conf
-	rm -rf /etc/dnsmasq.d/20-wblist_ipset.conf
-	rm -rf /etc/dnsmasq.d/30-special_list.conf
+	rm -rf "${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
+	rm -rf "${dnsmasq_config_dir}"/20-sscdn_ipset.conf
+	rm -rf "${dnsmasq_config_dir}"/20-wblist_ipset.conf
+	rm -rf "${dnsmasq_config_dir}"/30-special_list.conf
 }
 
 restart_dnsmasq() {
 	# Restart dnsmasq
 	echo "Restarting dnsmasq..."
-	systemctl restart dnsmasq
+	if [ "${dnsmasq_mode}" = "systemd" ]; then
+		systemctl restart dnsmasq
+	else
+		kill -s HUP $(pidof dnsmasq)
+	fi
 }
 
 stop_dnsmasq() {
-	# Restart dnsmasq
-	echo "Stopping dnsmasq..."
-	systemctl stop dnsmasq
+	# Stop dnsmasq
+	if [ "${dnsmasq_mode}" = "systemd" ]; then
+		echo "Stopping dnsmasq..."
+		systemctl stop dnsmasq
+	else
+		echo "Warning: dnsmasq is not managed by systemd, won't stop."
+	fi
 }
 
 start_puredns() {
@@ -441,7 +464,7 @@ stop() {
 
 start() {
 	env_check
-    echo "Working Mode: [${working_mode}]"
+	echo "Working Mode: [${working_mode}]"
 	prepare "$@"
 	echo "Proxy Mode: [${ss_mode}]"
 	start_ss_redir
@@ -472,9 +495,9 @@ quick_restart() {
 	ipset -! add white_list "${ss_server_ip}" &>/dev/null
 	#add server domain to white list if not exist.
 	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		if ! grep "${ss_server}" /etc/dnsmasq.d/20-wblist_ipset.conf; then
-			echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>/etc/dnsmasq.d/20-wblist_ipset.conf
-			echo "ipset=/.${ss_server}/white_list" >>/etc/dnsmasq.d/20-wblist_ipset.conf
+		if ! grep "${ss_server}" "${dnsmasq_config_dir}"/20-wblist_ipset.conf; then
+			echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+			echo "ipset=/.${ss_server}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 		fi
 	fi
 	start_ss_redir
