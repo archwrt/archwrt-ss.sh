@@ -287,10 +287,15 @@ create_nat_rules() {
 	[ -n "${lanip}" ] && iptables -t nat -I PREROUTING -s ${lanip}/24 -p udp --dport 53 -m comment --comment "dns_redir" -j DNAT --to ${lanip}
 	# forward
 	iptables -t nat -I PREROUTING 1 -p tcp -j SHADOWSOCKS
-	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I PREROUTING 1 -j SHADOWSOCKS
-	# for router self
 	iptables -t nat -I OUTPUT 1 -p tcp -j SHADOWSOCKS
-	[ "${ss_mode}" = "gamemode" ] && iptables -t mangle -I OUTPUT 1 -j SS_MARK
+
+	if [ "${ss_mode}" = "gamemode" ]; then
+		iptables -t mangle -I PREROUTING 1 -j SHADOWSOCKS
+		iptables -t mangle -I OUTPUT 1 -j SS_MARK
+		if [ "${working_mode}" = "v2ray" ]; then
+			echo -e "\e[93mWarning: udp relay may not work with v2ray's dokodemo-door.\e[0m"
+		fi
+	fi
 
 }
 
