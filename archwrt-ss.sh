@@ -16,7 +16,7 @@ if [ "${working_mode}" = "ss" ]; then
 elif [ "${working_mode}" = "v2ray" ]; then
 	ss_config_dir="/etc/v2ray"
 else
-	echo "ss_config_dir not configured in $_conf"
+	echo "working_mode not configured in $_conf"
 	exit 1
 fi
 
@@ -495,7 +495,7 @@ quick_restart() {
 	ipset -! add white_list "${ss_server_ip}" &>/dev/null
 	#add server domain to white list if not exist.
 	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		if ! grep "${ss_server}" "${dnsmasq_config_dir}"/20-wblist_ipset.conf; then
+		if ! grep "${ss_server}" "${dnsmasq_config_dir}"/20-wblist_ipset.conf &> /dev/null; then
 			echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 			echo "ipset=/.${ss_server}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
 		fi
