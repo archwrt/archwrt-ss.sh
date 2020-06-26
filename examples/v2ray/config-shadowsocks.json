@@ -23,7 +23,6 @@
           {
             "address": "example.com",
             "method": "aes-256-gcm",
-            "aead": true,
             "password": "password",
             "port": 8080  
           }
