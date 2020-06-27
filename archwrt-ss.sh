@@ -132,7 +132,7 @@ start_ss_redir() {
 
 update_rules() {
 	echo "Checking rules..."
-	local URL="https://github.com/hq450/fancyss/raw/master"
+	local URL="https://r.nichi.co/github.com/hq450/fancyss/raw/master"
 	if [ ! -f "${gfwlist}" ] || [ "$1" = "f" ]; then
 		echo "Downloading gfwlist.txt..."
 		! curl -kLo /tmp/gfwlist.conf "$URL/rules/gfwlist.conf" &&
