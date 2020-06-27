@@ -259,7 +259,7 @@ config_ipset() {
 		EOF
 
 		# set cdn domains over CDN DNS
-		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
+		sed "s/^/server=&\//g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
 			sort | awk '{if ($0!=line) print;line=$0}' >"${dnsmasq_config_dir}"/20-sscdn_ipset.conf
 	fi
 
