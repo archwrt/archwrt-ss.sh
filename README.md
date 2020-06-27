@@ -109,3 +109,14 @@ IP/NET/Domains suported, one line each, for example:
 example.com #domain
 ...
 ```
+
+## FAQ
+### `/etc/resolv.conf` is overwrite by NetworkManager
+Solution:
+
+create a file like `/etc/NetworkManager/conf.d/10-dns.conf` with following c:
+
+``` ini
+[global-dns-domain-*]
+servers=::1,127.0.0.1
+```
