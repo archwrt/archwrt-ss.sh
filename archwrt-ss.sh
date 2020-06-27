@@ -3,6 +3,7 @@
 
 ss_dir="/etc/archwrt/ss"
 _conf="${ss_dir}/archwrt-ss.conf"
+dnsmasq_config_dir="/etc/dnsmasq.d"
 
 if [ ! -f "${_conf}" ]; then
 	echo "No config file found! exiting..."
@@ -18,19 +19,6 @@ elif [ "${working_mode}" = "v2ray" ]; then
 else
 	echo "working_mode not configured in $_conf"
 	exit 1
-fi
-
-if [ "${dnsmasq_mode}" = "systemd" ]; then
-	dnsmasq_config_dir="/etc/dnsmasq.d"
-elif [ "${dnsmasq_mode}" = "nm" ]; then
-	dnsmasq_config_dir="/etc/NetworkManager/dnsmasq.d"
-else
-	echo "dnsmasq_mode not configured in $_conf"
-	exit 1
-fi
-
-if [ -n "${overwrite_resolv}" ]; then
-	echo -e "\e[93mWarning: overwrite_resolv has been removed, since you can use dnsmasq_mode=nm now.\e[0m"
 fi
 
 help() {
@@ -63,10 +51,8 @@ prepare() {
 	[ ! -f "${whitelist}" ] && touch "${whitelist}"
 	[ ! -f "${blacklist}" ] && touch "${blacklist}"
 	[ ! -d "${dnsmasq_config_dir}" ] && mkdir -p "${dnsmasq_config_dir}"
-	if [ "${dnsmasq_mode}" = "systemd" ]; then
-		! grep -q "^conf-dir" /etc/dnsmasq.conf &&
-			echo "conf-dir=/etc/dnsmasq.d/,*.conf" >>/etc/dnsmasq.conf
-	fi
+	! grep -q "^conf-dir" /etc/dnsmasq.conf &&
+			echo "conf-dir=${dnsmasq_config_dir}/,*.conf" >>/etc/dnsmasq.conf
 	[ "$(cat /proc/sys/net/ipv4/ip_forward)" != '1' ] && echo 1 >/proc/sys/net/ipv4/ip_forward
 
 	while [ $# -gt 0 ]; do
@@ -379,22 +365,13 @@ flush_nat() {
 restart_dnsmasq() {
 	# Restart dnsmasq
 	echo "Restarting dnsmasq..."
-	if [ "${dnsmasq_mode}" = "systemd" ]; then
-		systemctl restart dnsmasq
-	else
-		kill $(pidof dnsmasq)
-	fi
+	systemctl restart dnsmasq
 }
 
 stop_dnsmasq() {
 	# Stop dnsmasq
-	if [ "${dnsmasq_mode}" = "systemd" ]; then
-		echo "Stopping dnsmasq..."
-		systemctl stop dnsmasq
-	else
-		echo -e "\e[93mWarning: dnsmasq is not managed by systemd, won't stop.\e[0m"
-		kill $(pidof dnsmasq)
-	fi
+	echo "Stopping dnsmasq..."
+	systemctl stop dnsmasq
 }
 
 start_puredns() {
