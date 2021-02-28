@@ -416,6 +416,11 @@ stop() {
 
 start() {
 	env_check
+    if [[ -f "/var/run/archwrt-ss.sh.running" ]]; then
+        echo "Already started and running!"
+        echo "If not, try \`rm /var/run/archwrt-ss.sh.running\`"
+        exit 0
+    fi
 	echo "Working Mode: [${working_mode}]"
 	prepare "$@"
 	echo "Proxy Mode: [${ss_mode}]"
