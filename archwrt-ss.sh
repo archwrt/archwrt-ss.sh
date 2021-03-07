@@ -129,15 +129,15 @@ update_rules() {
 
 	if [ ! -f "${chnroute}" ] || [ "$1" = "f" ]; then
 		echo "Downloading chnroute.txt..."
-		! curl -kLo /tmp/chnroute.txt "$URL/rules/chnroute.txt" &&
+		! curl -kLo /tmp/chnroute.txt "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/ipip_country/ipip_country_cn.netset" &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
 	fi
 
 	if [ ! -f "${cdn}" ] || [ "$1" = "f" ]; then
-		echo "Downloading cdn.txt..."
-		! curl -kLo /tmp/cdn.txt "$URL/rules/cdn.txt" &&
+        echo "Downloading cdn.txt (a.k.a. felixonmars list)..."
+		! curl -kL "https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/"{accelerated-domains.china.conf,apple.china.conf,google.china.conf} | grep -v '^#' | cut -d '/' -f 2 | sort -u > /tmp/cdn.txt &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/cdn.txt "${cdn}" &>/dev/null
 		rm /tmp/cdn.txt
