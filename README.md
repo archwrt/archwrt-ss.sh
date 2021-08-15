@@ -12,7 +12,7 @@ A simple Shadowsocks transparent proxy setup script.
 
 ## Depends
 
-* shadowsocks-libev
+* shadowsocks-rust or v2ray-core
 * simple-obfs (optional)
 * shadowsocks-v2ray-plugin (optional)
 * dnsmasq

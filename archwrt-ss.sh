@@ -13,7 +13,7 @@ fi
 source "${_conf}"
 
 if [ "${working_mode}" = "ss" ]; then
-	ss_config_dir="/etc/shadowsocks"
+	ss_config_dir="/etc/shadowsocks-rust"
 elif [ "${working_mode}" = "v2ray" ]; then
 	ss_config_dir="/etc/v2ray"
 else
@@ -98,7 +98,7 @@ env_check() {
 
 	echo "Checking environment..."
 	[ "$(whoami)" != "root" ] && echo "Please run as root!" && exit 1
-	! hash ss-redir &>/dev/null && ! hash v2ray &>/dev/null && echo "Please install shadowsocks-libev or v2ray!" && exit 1
+	! hash sslocal-rust &>/dev/null && ! hash v2ray &>/dev/null && echo "Please install shadowsocks-rust or v2ray!" && exit 1
 	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
 	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
 	! hash iptables &>/dev/null && echo "Please install iptables！" && exit 1
@@ -107,10 +107,10 @@ env_check() {
 
 start_ss_redir() {
 
-	echo "Starting ss-redir..."
+	echo "Starting..."
 	# Start redir
 	if [ "${working_mode}" = "ss" ]; then
-		(systemctl start shadowsocks-libev-redir@"${ss_config}".service &) || true
+		(systemd-run --unit="sslocal-rust@${ss_config}" sslocal-rust -c "${ss_config_dir}/${ss_config}.json" &) || true
 	elif [ "${working_mode}" = "v2ray" ]; then
 		(systemctl start v2ray@"${ss_config}".service &) || true
 	fi
@@ -307,7 +307,7 @@ stop_service() {
 	echo "Stopping process..."
 
 	if [ "${working_mode}" = "ss" ]; then
-		systemctl stop shadowsocks-libev-redir@"${ss_config}"
+		systemctl stop "sslocal-rust@${ss_config}"
 	elif [ "${working_mode}" = "v2ray" ]; then
 		systemctl stop v2ray@"${ss_config}"
 	fi
@@ -387,7 +387,7 @@ stop_puredns() {
 check_status() {
 	echo '----------- status --------------'
 	if [ "${working_mode}" = "ss" ]; then
-		systemctl status --no-pager shadowsocks-libev-redir@"${ss_config}"
+		systemctl status --no-pager "sslocal-rust@${ss_config}"
 	elif [ "${working_mode}" = "v2ray" ]; then
 		systemctl status --no-pager v2ray@"${ss_config}"
 	fi

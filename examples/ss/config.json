@@ -3,6 +3,7 @@
   "server_port": 8080,
   "local_address": "0.0.0.0",
   "local_port": 1080,
+  "protocol": "redir",
   "password": "password",
   "timeout": 300,
   "method": "aes-256-gcm",

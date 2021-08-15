@@ -1,1 +1,1 @@
-put into /etc/shadowsocks
+put into /etc/shadowsocks-rust
