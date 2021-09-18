@@ -15,10 +15,11 @@ A simple Shadowsocks transparent proxy setup script.
 * shadowsocks-rust or v2ray-core
 * simple-obfs (optional)
 * shadowsocks-v2ray-plugin (optional)
-* dnsmasq
+* ~~dnsmasq~~
+* smartdns
 * ipset
 * iptables
-* [AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional)
+* ~~[AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional)~~
 
 
 
