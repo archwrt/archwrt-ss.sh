@@ -3,11 +3,10 @@
 
 ss_dir="/etc/archwrt/ss"
 _conf="${ss_dir}/archwrt-ss.conf"
-dnsmasq_config_dir="/etc/dnsmasq.d"
-dnsmasq_gfwlist="40-gfwlist_ipset.conf"
-dnsmasq_wblist="20-wblist_ipset.conf"
-dnsmasq_sscdn="30-sscdn_ipset.conf"
-dnsmasq_special_list="10-special_list.conf"
+smartdns_config_dir="/etc/smartdns"
+smartdns_config="${smartdns_config_dir}/smartdns.conf"
+smartdns_gfwlist="archwrt-ss.gfwlist.conf"
+smartdns_wblist="archwrt-ss.wblist.conf"
 
 if [ ! -f "${_conf}" ]; then
 	echo "No config file found! exiting..."
@@ -51,12 +50,8 @@ help() {
 prepare() {
 
 	[ ! -d "${ss_dir}" ] && mkdir -p "${ss_dir}"
-	[ ! -f "${speciallist}" ] && touch "${speciallist}"
 	[ ! -f "${whitelist}" ] && touch "${whitelist}"
 	[ ! -f "${blacklist}" ] && touch "${blacklist}"
-	[ ! -d "${dnsmasq_config_dir}" ] && mkdir -p "${dnsmasq_config_dir}"
-	! grep -q "^conf-dir" /etc/dnsmasq.conf &&
-			echo "conf-dir=${dnsmasq_config_dir}/,*.conf" >>/etc/dnsmasq.conf
 	[ "$(cat /proc/sys/net/ipv4/ip_forward)" != '1' ] && echo 1 >/proc/sys/net/ipv4/ip_forward
 
 	while [ $# -gt 0 ]; do
@@ -106,7 +101,6 @@ env_check() {
 	! hash curl &>/dev/null && echo "Please install curl!" && exit 1
 	! hash ipset &>/dev/null && echo "Please install ipset!" && exit 1
 	! hash iptables &>/dev/null && echo "Please install iptables！" && exit 1
-	[ -z ${puredns_port} ] && echo "Please set puredns_port in ${_conf}!" && exit 1
 }
 
 start_ss_redir() {
@@ -127,7 +121,7 @@ update_rules() {
 		echo "Downloading gfwlist.txt..."
 		! curl -kLo /tmp/gfwlist.conf "$URL/rules/gfwlist.conf" &&
 			echo "Download failed! Check your connection!" && exit 1
-		install -D -m644 /tmp/gfwlist.conf "${gfwlist}" &>/dev/null
+    grep '^ipset' /tmp/gfwlist.conf | sed 's,=, ,g' > "${gfwlist}"
 		rm /tmp/gfwlist.conf
 	fi
 
@@ -138,14 +132,38 @@ update_rules() {
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
 	fi
+}
 
-	if [ ! -f "${cdn}" ] || [ "$1" = "f" ]; then
-        echo "Downloading cdn.txt (a.k.a. felixonmars list)..."
-		! curl -kL "https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/"{accelerated-domains.china.conf,apple.china.conf,google.china.conf} | grep -v '^#' | cut -d '/' -f 2 | sort -u > /tmp/cdn.txt &&
-			echo "Download failed! Check your connection!" && exit 1
-		install -D -m644 /tmp/cdn.txt "${cdn}" &>/dev/null
-		rm /tmp/cdn.txt
-	fi
+config_smartdns() {
+  # Setup smartdns 
+  cat >"${smartdns_config}" <<-EOF
+		bind [::]:${smartdns_port}
+		cache-size ${smartdns_cache_size}
+		log-level ${smartdns_log_level}
+	EOF
+
+  if [ "$1" = "start" ]; then
+    if [ "${ss_mode}" = "gfwlist" ]; then
+      echo "conf-file ${smartdns_gfwlist}" >> "${smartdns_config}"
+    fi
+    echo "conf-file ${smartdns_wblist}" >> "${smartdns_config}"
+  fi
+
+  for conf_file in ${smartdns_china_list[@]} \
+    ${smartdns_custom_list[@]}; do
+    echo "conf-file ${conf_file}" >> "${smartdns_config}"
+  done
+
+  for dns in ${smartdns_china[@]}; do
+    echo "server ${dns} -group china -exclude-default-group" >> "${smartdns_config}"
+  done
+  for dns in ${smartdns_dot[@]}; do
+    echo "server-tls ${dns}" >> "${smartdns_config}"
+  done
+  for dns in ${smartdns_doh[@]}; do
+    echo "server-https ${dns}" >> "${smartdns_config}"
+  done
+
 }
 
 config_ipset() {
@@ -154,10 +172,9 @@ config_ipset() {
 	ipset -! create white_list nethash && ipset flush white_list
 	ipset -! create black_list nethash && ipset flush black_list
 	if [ "${ss_mode}" = "gfwlist" ]; then
-		# gfwlist dnsmasq
+		# gfwlist smartdns
 		ipset -! create gfwlist nethash && ipset flush gfwlist
-		cat "${gfwlist}" >"${dnsmasq_config_dir}/${dnsmasq_gfwlist}"
-		sed -i "s/7913/${puredns_port}/g" "${dnsmasq_config_dir}/${dnsmasq_gfwlist}"
+		ln -s "${gfwlist}" "${smartdns_config_dir}/${smartdns_gfwlist}"
 	elif [ "${ss_mode}" = "bypass" ] || [ "${ss_mode}" = "gamemode" ]; then
 		# bypass ipset
 		ipset -! create bypass nethash && ipset flush bypass
@@ -182,7 +199,7 @@ config_ipset() {
 		'224.0.0.0/4'
 		'240.0.0.0/4'
 		"${ss_server_ip}"
-		"${china_dns}"
+		${smartdns_china[@]}
 		'223.5.5.5'
 		'223.6.6.6'
 		'114.114.114.114'
@@ -197,11 +214,10 @@ config_ipset() {
 		ipset -! add white_list "${ip}" &>/dev/null
 	done
 	# add custom black list
-	truncate -s 0 "${dnsmasq_config_dir}"/20-wblist_ipset.conf
+	truncate -s 0 "${smartdns_config_dir}/${smartdns_wblist}"
 	sed -E '/^$|^[#;]/d' "${blacklist}" | while read -r line; do
-		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
-			echo "server=/.${line}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
-			echo "ipset=/.${line}/black_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+  if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
+			echo "ipset /.${line}/black_list" >> "${smartdns_config_dir}/${smartdns_wblist}"
 		else
 			ipset -! add black_list "${line}" &>/dev/null
 		fi
@@ -209,51 +225,22 @@ config_ipset() {
 
 	#add server domain to white list
 	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
-		echo "ipset=/.${ss_server}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+		echo "ipset /${ss_server}/white_list" >> "${smartdns_config_dir}/${smartdns_wblist}"
 	fi
 
 	# add custom white list
 	sed -E '/^$|^[#;]/d' "${whitelist}" | while read -r line; do
 		if ! echo "${line}" | grep -qE "([0-9]{1,3}[\.]){3}[0-9]{1,3}"; then
-			echo "server=/.${line}/${china_dns}#${china_dns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
-			echo "ipset=/.${line}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
+			echo "ipset /.${line}/white_list" >> "${smartdns_config_dir}/${smartdns_wblist}"
 		else
 			ipset -! add white_list "${line}" &>/dev/null
 		fi
 	done
 
-	# add speciallist
-	truncate -s 0 "${dnsmasq_config_dir}/${dnsmasq_special_list}"
-	if [ -n "${special_dns_port}" ] && [ -n "${special_dns}" ]; then
-		sed -E '/^$|^[#;]/d' "${speciallist}" | while read -r line; do
-			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>"${dnsmasq_config_dir}/${dnsmasq_special_list}"
-		done
-	fi
-
-	# not gfwlist over cdn
-	if [ "${ss_mode}" = "gfwlist" ]; then
-		# Setup China DNS
-		cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
-			no-resolv
-			expand-hosts
-			server=${china_dns}#${china_dns_port}
-		EOF
-
-	else
-		# set default DNS over DoT
-		cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
-			no-resolv
-			expand-hosts
-			server=127.0.0.1#${puredns_port}
-		EOF
-
-		# set cdn domains over CDN DNS
-		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
-			sort | awk '{if ($0!=line) print;line=$0}' >"${dnsmasq_config_dir}/${dnsmasq_sscdn}"
-	fi
+  config_smartdns start
 
 }
+
 
 create_nat_rules() {
 
@@ -352,40 +339,22 @@ flush_nat() {
 	echo "Clearing rules..."
 	ip route del local 0.0.0.0/0 dev lo table 310 &>/dev/null
 
-	# restore DNS to China DNS
-	cat >"${dnsmasq_config_dir}"/10-dns.conf <<-EOF
-		no-resolv
-		no-poll
-		expand-hosts
-		server=${china_dns}#${china_dns_port}
-	EOF
-	# remove dnsmasq config
-	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_gfwlist##*-}
-	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_sscdn##*-}
-	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_wblist##*-}
-	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_special_list##*-}
+	# remove generated config
+	rm -f "${smartdns_config_dir}"/archwrt-ss.*.conf
+
+  config_smartdns
 }
 
-restart_dnsmasq() {
-	# Restart dnsmasq
-	echo "Restarting dnsmasq..."
-	systemctl restart dnsmasq
+restart_smartdns() {
+	# Restart smartdns
+	echo "Restarting smartdns..."
+	systemctl restart smartdns
 }
 
-stop_dnsmasq() {
-	# Stop dnsmasq
-	echo "Stopping dnsmasq..."
-	systemctl stop dnsmasq
-}
-
-start_puredns() {
-	echo "Starting ${puredns_service_name}..."
-	systemctl start "${puredns_service_name}"
-}
-
-stop_puredns() {
-	echo "Stopping ${puredns_service_name}..."
-	systemctl stop "${puredns_service_name}"
+stop_smartdns() {
+	# Stop smartdns
+	echo "Stopping smartdns..."
+	systemctl stop smartdns
 }
 
 check_status() {
@@ -396,7 +365,7 @@ check_status() {
 		systemctl status --no-pager v2ray@"${ss_config}"
 	fi
 	echo '---------------------------------'
-	systemctl status --no-pager "${puredns_service_name}"
+	systemctl status --no-pager smartdns.service
 	echo '---------------------------------'
 	echo "working_mode: ${working_mode}"
 	iptables -t nat -S | grep -q SHADOWSOCKS && echo "NAT rules added with [${ss_mode}]." || echo "No NAT rules added."
@@ -407,14 +376,7 @@ stop() {
 	env_check
 	stop_service
 	flush_nat
-	if [ "${stop_dnsmasq_on_stop}" = "true"  ]; then
-		stop_dnsmasq
-	else
-		restart_dnsmasq
-	fi
-	if [ "${puredns_managed}" = "true" ]; then
-		stop_puredns
-	fi
+	restart_smartdns
 	rm /var/run/archwrt-ss.sh.running &> /dev/null
 }
 
@@ -435,7 +397,7 @@ start() {
 	if [ "${puredns_managed}" = "true" ]; then
 		start_puredns
 	fi
-	restart_dnsmasq
+	restart_smartdns
 	touch /var/run/archwrt-ss.sh.running
 }
 
@@ -453,13 +415,6 @@ quick_restart() {
 	stop_service
 	prepare "$@"
 	ipset -! add white_list "${ss_server_ip}" &>/dev/null
-	#add server domain to white list if not exist.
-	if [[ ! "${ss_server}" =~ "([0-9]{1,3}[\.]){3}[0-9]{1,3}" ]]; then
-		if ! grep "${ss_server}" "${dnsmasq_config_dir}"/20-wblist_ipset.conf &> /dev/null; then
-			echo "server=/.${ss_server}/127.0.0.1#${puredns_port}" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
-			echo "ipset=/.${ss_server}/white_list" >>"${dnsmasq_config_dir}"/20-wblist_ipset.conf
-		fi
-	fi
 	start_ss_redir
 	echo "Proxy Mode: [${ss_mode}] (not changed)"
 	echo "Switched to ${ss_config}"
