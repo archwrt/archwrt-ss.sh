@@ -16,7 +16,7 @@ A simple Shadowsocks transparent proxy setup script.
 * simple-obfs (optional)
 * shadowsocks-v2ray-plugin (optional)
 * ~~dnsmasq~~
-* smartdns
+* [smartdns](https://github.com/pymumu/smartdns)
 * ipset
 * iptables
 * ~~[AdguardTeam/dnsproxy](https://github.com/AdguardTeam/dnsproxy) (optional)~~
