@@ -4,6 +4,10 @@
 ss_dir="/etc/archwrt/ss"
 _conf="${ss_dir}/archwrt-ss.conf"
 dnsmasq_config_dir="/etc/dnsmasq.d"
+dnsmasq_gfwlist="40-gfwlist_ipset.conf"
+dnsmasq_wblist="20-wblist_ipset.conf"
+dnsmasq_sscdn="30-sscdn_ipset.conf"
+dnsmasq_special_list="10-special_list.conf"
 
 if [ ! -f "${_conf}" ]; then
 	echo "No config file found! exiting..."
@@ -152,8 +156,8 @@ config_ipset() {
 	if [ "${ss_mode}" = "gfwlist" ]; then
 		# gfwlist dnsmasq
 		ipset -! create gfwlist nethash && ipset flush gfwlist
-		cat "${gfwlist}" >"${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
-		sed -i "s/7913/${puredns_port}/g" "${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
+		cat "${gfwlist}" >"${dnsmasq_config_dir}/${dnsmasq_gfwlist}"
+		sed -i "s/7913/${puredns_port}/g" "${dnsmasq_config_dir}/${dnsmasq_gfwlist}"
 	elif [ "${ss_mode}" = "bypass" ] || [ "${ss_mode}" = "gamemode" ]; then
 		# bypass ipset
 		ipset -! create bypass nethash && ipset flush bypass
@@ -220,10 +224,10 @@ config_ipset() {
 	done
 
 	# add speciallist
-	truncate -s 0 "${dnsmasq_config_dir}"/30-special_list.conf
+	truncate -s 0 "${dnsmasq_config_dir}/${dnsmasq_special_list}"
 	if [ -n "${special_dns_port}" ] && [ -n "${special_dns}" ]; then
 		sed -E '/^$|^[#;]/d' "${speciallist}" | while read -r line; do
-			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>"${dnsmasq_config_dir}"/30-special_list.conf
+			echo "server=/.${line}/${special_dns}#${special_dns_port}" >>"${dnsmasq_config_dir}/${dnsmasq_special_list}"
 		done
 	fi
 
@@ -246,7 +250,7 @@ config_ipset() {
 
 		# set cdn domains over CDN DNS
 		sed "s/^/server=&\/./g" "${cdn}" | sed "s/$/\/&${cdn_dns}#${cdn_dns_port}/g" |
-			sort | awk '{if ($0!=line) print;line=$0}' >"${dnsmasq_config_dir}"/20-sscdn_ipset.conf
+			sort | awk '{if ($0!=line) print;line=$0}' >"${dnsmasq_config_dir}/${dnsmasq_sscdn}"
 	fi
 
 }
@@ -356,10 +360,10 @@ flush_nat() {
 		server=${china_dns}#${china_dns_port}
 	EOF
 	# remove dnsmasq config
-	rm -rf "${dnsmasq_config_dir}"/20-gfwlist_ipset.conf
-	rm -rf "${dnsmasq_config_dir}"/20-sscdn_ipset.conf
-	rm -rf "${dnsmasq_config_dir}"/20-wblist_ipset.conf
-	rm -rf "${dnsmasq_config_dir}"/30-special_list.conf
+	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_gfwlist##*-}
+	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_sscdn##*-}
+	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_wblist##*-}
+	rm -rf "${dnsmasq_config_dir}/"*-${dnsmasq_special_list##*-}
 }
 
 restart_dnsmasq() {
