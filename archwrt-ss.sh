@@ -115,7 +115,10 @@ start_ss_redir() {
 }
 
 update_rules() {
-	echo "Checking rules..."
+  if [ "${ss_mode}" = "global" ] && [ "$1" != "f" ]; then
+    return 0
+  fi
+  echo "Checking rules..."
 	local URL="https://github.com/hq450/fancyss/raw/master"
 	if [ ! -f "${gfwlist}" ] || [ "$1" = "f" ]; then
 		echo "Downloading gfwlist.txt..."
