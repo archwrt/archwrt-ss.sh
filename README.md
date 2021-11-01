@@ -76,21 +76,13 @@ You need write your `${ss_conf}.json` in `/etc/shadowsocks`
 Check if there's any error, for example:
 
 ```
-$ ss-redir -c /etc/shadowsocks/config.json
+$ sslocal-rust -c /etc/shadowsocks-rust/config.json
 ```
 
-Not yet, you need set `puredns_port` in `/etc/archwrt/ss/archwrt-ss.conf` as the upstream of the dnsmasq.
-
-Now you can start by:
+start by:
 
 ```
-$ sudo systemctl start archwrt-ss.service
-```
-
-For auto start:
-
-```
-systemctl enable archwrt-ss.service
+sudo archwrt-ss.sh start global
 ```
 
 ## Customized Blacklist/Whitelist
