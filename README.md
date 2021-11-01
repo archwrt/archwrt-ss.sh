@@ -79,10 +79,22 @@ Check if there's any error, for example:
 $ sslocal-rust -c /etc/shadowsocks-rust/config.json
 ```
 
-start by:
+You may need start with `global` mode for the first time:
 
 ```
 sudo archwrt-ss.sh start global
+```
+
+Then update rules by:
+
+```
+sudo archwrt-ss.sh update
+```
+
+Finally you can switch to `gfwlist`, `gamemode` or `bypass` mode by:
+
+```
+sudo archwrt-ss.sh gfwlist|gamemode|bypass
 ```
 
 ## Customized Blacklist/Whitelist
