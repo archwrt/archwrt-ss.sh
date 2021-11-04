@@ -130,7 +130,7 @@ update_rules() {
 
 	if [ ! -f "${chnroute}" ] || [ "$1" = "f" ]; then
 		echo "Downloading chnroute.txt..."
-		! curl -kL "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/ipip_country/ipip_country_cn.netset" | grep -v '^#' > /tmp/chnroute.txt &&
+		! curl -kL "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/geolite2_country/country_cn.netset" | grep -v '^#' > /tmp/chnroute.txt &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
