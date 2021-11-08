@@ -248,32 +248,32 @@ config_ipset() {
 create_nat_rules() {
 
 	echo "Setting up NAT table..."
-	iptables -t nat -N SHADOWSOCKS
-	iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set white_list dst -j RETURN
+	iptables -w -t nat -N SHADOWSOCKS
+	iptables -w -t nat -A SHADOWSOCKS -p tcp -m set --match-set white_list dst -j RETURN
 	if [ "${ss_mode}" = "gfwlist" ]; then
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports "${local_port}"
 	elif [ "${ss_mode}" = "bypass" ]; then
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
 	elif [ "${ss_mode}" = "global" ]; then
-		iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-ports "${local_port}"
 	elif [ "${ss_mode}" = "gamemode" ]; then
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
-		iptables -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set --match-set black_list dst -j REDIRECT --to-ports "${local_port}"
+		iptables -w -t nat -A SHADOWSOCKS -p tcp -m set ! --match-set bypass dst -j REDIRECT --to-ports "${local_port}"
 
 		#UDP Rules
 		ip rule add fwmark 0x07 table 310 pref 789
 		ip route add local default dev lo table 310
-		iptables -t mangle -N SHADOWSOCKS
-		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set white_list dst -j RETURN
-		iptables -t mangle -A SHADOWSOCKS -p udp -m set --match-set black_list dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
-		iptables -t mangle -A SHADOWSOCKS -p udp -m set ! --match-set bypass dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
+		iptables -w -t mangle -N SHADOWSOCKS
+		iptables -w -t mangle -A SHADOWSOCKS -p udp -m set --match-set white_list dst -j RETURN
+		iptables -w -t mangle -A SHADOWSOCKS -p udp -m set --match-set black_list dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
+		iptables -w -t mangle -A SHADOWSOCKS -p udp -m set ! --match-set bypass dst -j TPROXY --on-port "${local_port}" --tproxy-mark 0x07
 
-		iptables -t mangle -N SS_MARK
-		iptables -t mangle -A SS_MARK -p udp -j RETURN -m set --match-set white_list dst
-		iptables -t mangle -A SS_MARK -p udp -m set --match-set black_list dst -j MARK --set-mark 0x07
-		iptables -t mangle -A SS_MARK -p udp -m set ! --match-set bypass dst -j MARK --set-mark 0x07
+		iptables -w -t mangle -N SS_MARK
+		iptables -w -t mangle -A SS_MARK -p udp -j RETURN -m set --match-set white_list dst
+		iptables -w -t mangle -A SS_MARK -p udp -m set --match-set black_list dst -j MARK --set-mark 0x07
+		iptables -w -t mangle -A SS_MARK -p udp -m set ! --match-set bypass dst -j MARK --set-mark 0x07
 
 	else
 		echo "Wrong proxy mode!" && exit 1
@@ -282,14 +282,14 @@ create_nat_rules() {
 	#PREROUTING
 
 	# dns_redir
-	[ -n "${lanip}" ] && iptables -t nat -I PREROUTING -s ${lanip}/24 -p udp --dport 53 -m comment --comment "dns_redir" -j DNAT --to ${lanip}
+	[ -n "${lanip}" ] && iptables -w -t nat -I PREROUTING -s ${lanip}/24 -p udp --dport 53 -m comment --comment "dns_redir" -j DNAT --to ${lanip}
 	# forward
-	iptables -t nat -I PREROUTING 1 -p tcp -j SHADOWSOCKS
-	iptables -t nat -I OUTPUT 1 -p tcp -j SHADOWSOCKS
+	iptables -w -t nat -I PREROUTING 1 -p tcp -j SHADOWSOCKS
+	iptables -w -t nat -I OUTPUT 1 -p tcp -j SHADOWSOCKS
 
 	if [ "${ss_mode}" = "gamemode" ]; then
-		iptables -t mangle -I PREROUTING 1 -j SHADOWSOCKS
-		iptables -t mangle -I OUTPUT 1 -j SS_MARK
+		iptables -w -t mangle -I PREROUTING 1 -j SHADOWSOCKS
+		iptables -w -t mangle -I OUTPUT 1 -j SS_MARK
 		if [ "${working_mode}" = "v2ray" ]; then
 			echo -e "\e[93mWarning: udp relay may not work with v2ray's dokodemo-door.\e[0m"
 		fi
@@ -311,17 +311,17 @@ flush_nat() {
 
 	echo "Clear rules..."
 	# flush shadowsocks rules
-	eval "$(iptables -t nat -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t nat -D/")"
-	iptables -t nat -D PREROUTING -p tcp -j SHADOWSOCKS &>/dev/null
-	iptables -t mangle -D OUTPUT -j SS_MARK &>/dev/null
-	iptables -t nat -F SHADOWSOCKS >/dev/null 2>&1 && iptables -t nat -X SHADOWSOCKS >/dev/null 2>&1
-	eval "$(iptables -t mangle -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -t mangle -D/")"
-	iptables -t mangle -D PREROUTING -j SHADOWSOCKS &>/dev/null
-	iptables -t mangle -F SHADOWSOCKS &>/dev/null && iptables -t mangle -X SHADOWSOCKS &>/dev/null
-	iptables -t mangle -F SS_MARK &>/dev/null && iptables -t mangle -X SS_MARK &>/dev/null
-	iptables -t nat -D OUTPUT -p tcp -j SHADOWSOCKS &>/dev/null
+	eval "$(iptables -w -t nat -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -w -t nat -D/")"
+	iptables -w -t nat -D PREROUTING -p tcp -j SHADOWSOCKS &>/dev/null
+	iptables -w -t mangle -D OUTPUT -j SS_MARK &>/dev/null
+	iptables -w -t nat -F SHADOWSOCKS >/dev/null 2>&1 && iptables -w -t nat -X SHADOWSOCKS >/dev/null 2>&1
+	eval "$(iptables -w -t mangle -S | grep SHADOWSOCKS | sed 1d | sed -e "s/-A/iptables -w -t mangle -D/")"
+	iptables -w -t mangle -D PREROUTING -j SHADOWSOCKS &>/dev/null
+	iptables -w -t mangle -F SHADOWSOCKS &>/dev/null && iptables -w -t mangle -X SHADOWSOCKS &>/dev/null
+	iptables -w -t mangle -F SS_MARK &>/dev/null && iptables -w -t mangle -X SS_MARK &>/dev/null
+	iptables -w -t nat -D OUTPUT -p tcp -j SHADOWSOCKS &>/dev/null
 	# flush dns_redir rule
-	eval "$(iptables -t nat -S | grep "dns_redir" | head -1 | sed -e "s/-A/iptables -t nat -D/")" &>/dev/null
+	eval "$(iptables -w -t nat -S | grep "dns_redir" | head -1 | sed -e "s/-A/iptables -w -t nat -D/")" &>/dev/null
 	# flush ipset
 	ipset -F bypass &>/dev/null && ipset -X bypass &>/dev/null
 	ipset -F white_list &>/dev/null && ipset -X white_list &>/dev/null
@@ -371,8 +371,8 @@ check_status() {
 	systemctl status --no-pager smartdns.service
 	echo '---------------------------------'
 	echo "working_mode: ${working_mode}"
-	iptables -t nat -S | grep -q SHADOWSOCKS && echo "NAT rules added with [${ss_mode}]." || echo "No NAT rules added."
-	iptables -t mangle -S | grep -q SHADOWSOCKS && echo "UDP rules added." || echo "No UDP rules added."
+	iptables -w -t nat -S | grep -q SHADOWSOCKS && echo "NAT rules added with [${ss_mode}]." || echo "No NAT rules added."
+	iptables -w -t mangle -S | grep -q SHADOWSOCKS && echo "UDP rules added." || echo "No UDP rules added."
 }
 
 stop() {
