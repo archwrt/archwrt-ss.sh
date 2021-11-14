@@ -119,18 +119,17 @@ update_rules() {
     return 0
   fi
   echo "Checking rules..."
-	local URL="https://github.com/hq450/fancyss/raw/master"
 	if [ ! -f "${gfwlist}" ] || [ "$1" = "f" ]; then
-		echo "Downloading gfwlist.txt..."
-		! curl -kLo /tmp/gfwlist.conf "$URL/rules/gfwlist.conf" &&
+		echo "Downloading gfwlist.conf..."
+		! curl -kLo /tmp/gfwlist.conf "https://cdn.jsdelivr.net/gh/Apocalypsor/SmartDNS-GFWList@master/smartdns_gfw_domain.conf" &&
 			echo "Download failed! Check your connection!" && exit 1
-    grep '^ipset' /tmp/gfwlist.conf | sed 's,=, ,g' > "${gfwlist}"
+    grep '^nameserver' /tmp/gfwlist.conf | sed -E 's/^nameserver/ipset/g;s/GFW$/gfwlist/g' > "${gfwlist}"
 		rm /tmp/gfwlist.conf
 	fi
 
 	if [ ! -f "${chnroute}" ] || [ "$1" = "f" ]; then
 		echo "Downloading chnroute.txt..."
-		! curl -kL "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/geolite2_country/country_cn.netset" | grep -v '^#' > /tmp/chnroute.txt &&
+    ! curl -kL "https://cdn.jsdelivr.net/gh/soffchen/GeoIP2-CN@release/CN-ip-cidr.txt" > /tmp/chnroute.txt &&
 			echo "Download failed! Check your connection!" && exit 1
 		install -D -m644 /tmp/chnroute.txt "${chnroute}" &>/dev/null
 		rm /tmp/chnroute.txt
