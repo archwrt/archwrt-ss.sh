@@ -159,6 +159,10 @@ config_smartdns() {
   for dns in ${smartdns_china[@]}; do
     echo "server ${dns} -group china -exclude-default-group" >> "${smartdns_config}"
   done
+
+  for dns in ${smartdns_dns[@]}; do
+    echo "server ${dns}" >> "${smartdns_config}"
+  done
   for dns in ${smartdns_dot[@]}; do
     echo "server-tls ${dns}" >> "${smartdns_config}"
   done
