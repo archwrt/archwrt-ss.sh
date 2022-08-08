@@ -142,6 +142,7 @@ config_smartdns() {
 		bind [::]:${smartdns_port}
 		cache-size ${smartdns_cache_size}
 		log-level ${smartdns_log_level}
+    rr-ttl-min 60
 	EOF
 
   if [ "$1" = "start" ]; then
